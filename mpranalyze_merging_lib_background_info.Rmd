@@ -14,7 +14,7 @@ library(dplyr)
 
 ```{r}
 res <- read_tsv(here("output/mpranalyze_plasmidrep_112720.tsv"))
-full_lib <- read_tsv(here("data/library_risk_allele_adjusted_locus_matchup.tsv"))
+full_lib <- read_tsv(here("output/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv"))
 
 res_merge <- left_join(res, full_lib, by=c("locus" = "locus"))
 
