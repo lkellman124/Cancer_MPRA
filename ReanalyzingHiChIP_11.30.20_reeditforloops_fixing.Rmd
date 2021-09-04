@@ -265,9 +265,8 @@ write_tsv(same_bin_snpcell, here("output/hichip_samebin_snpcellgrouped_112920.ts
 
 Go through and mark connections in the relevant cell type
 ```{r}
-snp_disease <- res_merge %>% dplyr::filter(!(Disease_expanded %in% c("bladder", "cervical") &
-                                               Disease_original %in% c("bladder", "cervical"))) %>%
-  dplyr::select(Causal_SNP, Disease_expanded, Disease_original) %>%
+snp_disease <- res_merge %>% dplyr::filter(!(Disease_expanded %in% c("bladder", "cervical"))) %>%
+  dplyr::select(Causal_SNP, Disease_expanded) %>%
   mutate(Disease_expanded = str_split(Disease_expanded, ",")) %>%
   unnest(cols = Disease_expanded) %>% 
   mutate(Disease_expanded = case_when(
@@ -285,26 +284,9 @@ snp_disease <- res_merge %>% dplyr::filter(!(Disease_expanded %in% c("bladder", 
     grepl("pros", Disease_expanded) ~ "pros",
     grepl("renal", Disease_expanded) ~ "renal",
     grepl("thy", Disease_expanded) ~ "thy"))
-snp_disease <- snp_disease %>% mutate(Disease_original = str_split(Disease_original, ",")) %>%
-  unnest(cols = Disease_original) %>% 
-  mutate(Disease_original = case_when(
-        grepl("skin", Disease_original) ~ "kc",
-    grepl("lung", Disease_original) ~ "airway",
-    grepl("brain", Disease_original) ~ "ast",
-    grepl("colon", Disease_original) ~ "colon",
-    grepl("endo", Disease_original) ~ "endo",
-    grepl("eso", Disease_original) ~ "eso",
-    grepl("lymphoma", Disease_original) ~ "gm",
-    grepl("brca", Disease_original) ~ "hmec",
-    grepl("mel", Disease_original) ~ "mc",
-    grepl("ovca", Disease_original) ~ "ov",
-    grepl("paad", Disease_original) ~ "panc",
-    grepl("prad", Disease_original) ~ "pros",
-    grepl("kidney", Disease_original) ~ "renal",
-    grepl("thy", Disease_original) ~ "thy"))
 
 snp_disease <- snp_disease %>% group_by(Causal_SNP) %>%
-  summarise(disease = paste(sort(unique(c(Disease_original, Disease_expanded))[!is.na(unique(c(Disease_original, Disease_expanded)))]), collapse=","))
+  summarise(disease = paste(sort(unique(c(Disease_expanded))[!is.na(unique(c(Disease_expanded)))]), collapse=","))
 ```
 
 ```{r}
@@ -339,11 +321,8 @@ hichip_all_cell <- hichip %>% group_by(snp) %>%
 ```{r}
 res_merge_hichip <- left_join(res_merge, hichip_correct_celltype,
                               by=c("Causal_SNP"="snp"))
-res_merge_hichip <- dplyr::select(res_merge_hichip, Causal_SNP,Disease_original,  
-                                  Disease_expanded, HiChIP_egene,
-                                  HiChIP_tissue, HiChIP_loop, HiChIP_tss_atac,
-                                  hichip_egenes, hichip_ep_loops_cell_type,
-                                  hichip_ep_loop, hichip_correct_cell, hichip_correct_cell_types)
+res_merge_hichip <- dplyr::select(res_merge_hichip, Causal_SNP,  
+                                  Disease_expanded,hichip_correct_cell, hichip_correct_cell_types)
 # test <- dplyr::filter(res_merge_hichip, !is.na(HiChIP_egene) | !is.na(hichip_egenes) |
 #                         !is.na(hichip_correct_cell))
 ```
@@ -376,7 +355,6 @@ find_nearest <- function(snp, snp_chrom, snp_pos, gene_loc) {
 nearest_genes_5k = data.frame()
 for (i in 1:dim(snp_positions)[1]){
   x = snp_positions[i,]
-  print(i)
   nearest_genes_snp = find_nearest(x[["Causal_SNP"]], x[["Chr"]], x[["Start"]], gene_loc)
   if (dim(nearest_genes_snp)[1] > 0){
       if(dim(nearest_genes_5k)[1] > 0){
@@ -386,7 +364,7 @@ for (i in 1:dim(snp_positions)[1]){
   }
   }
 }
-nearest_genes <- as.data.frame(nearest_genes)
+nearest_genes <- as.data.frame(nearest_genes_5k)
 nearest_genes_5k <- as.data.frame(nearest_genes_5k)
 
 # using nearest_genes with 10kb filter
@@ -400,9 +378,7 @@ Add nearby genes and hichip to res merge
 
 ```{r}
 colnames(hichip_correct_celltype) <- c("Causal_SNP", "hichip_egene", "hichip_cell_type")
-res_merge_hichip <- left_join(dplyr::select(res_merge, -HiChIP_egene, -HiChIP_tissue,
-                                            -HiChIP_loop, -HiChIP_tss_atac, -hichip_egenes,
-                                            -hichip_ep_loops_cell_type, -hichip_ep_loop),
+res_merge_hichip <- left_join(res_merge,
                               hichip_correct_celltype)
 colnames(nearest_grouped) <- c("Causal_SNP", "genes_within_10kb")
 res_merge_gene <- left_join(res_merge_hichip, nearest_grouped)
