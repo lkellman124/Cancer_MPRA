@@ -147,7 +147,7 @@ Merge into library table
 
 haplo_gwas_coll <- haplo_gwas %>% dplyr::select(rsID, risk_allele_ref_alt) %>% distinct() %>%
   group_by(rsID) %>% summarise(gwas_risk_allele = paste("", risk_allele_ref_alt, sep="", collapse=","))
-lib_merge <- left_join(lib, haplo_gwas_coll, by=c("Lead_SNP"="rsID"))
+lib_merge <- left_join(lib, haplo_gwas_coll, by=c("leadSNP"="rsID"))
 write_tsv(lib_merge, here("output/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_1.14.20.tsv"))
 ```
 
