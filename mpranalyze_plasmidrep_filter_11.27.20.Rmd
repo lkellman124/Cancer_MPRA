@@ -157,7 +157,7 @@ sum(res$hmec_fdr < 0.01, na.rm=T)
 length(intersect(res$locus[res$hmec_fdr < 0.01], res1$locus[res1$hmec_fdr < 0.01]))
 
 
-mpranalyze_plasmidrep_111920_airway_ast_colon_endo_eso_gm.tsv")
+#mpranalyze_plasmidrep_111920_airway_ast_colon_endo_eso_gm.tsv")
 write_tsv(res3_write, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/mpranalyze_plasmidrep_111920_panc_pros_renal_thy.tsv")
 write_tsv(res_cell, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/hmec_mpranalyze_plasmidrep_111920.tsv")
 ```
