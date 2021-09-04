@@ -19,30 +19,32 @@ rule haploreg_simpler:
     "output/lib_table_merged_rsids_12.10.19.tsv"
   output:
     wrong="output/cmpra_haploreg_data.tsv",
-    right="output/cmpra_haploreg_data_withquery.tsv"
+    right="output/cmpra_haploreg_data_withquery.tsv",
+    "output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
   script:
     "HaploReg_FindingSNPs.Rmd"
 
 
-rule haploreg_with_merged_rsids:
-  input:
-    "output/lib_table_merged_rsids_12.10.19.tsv",
-    "data/leadsnp_haploreg_results_eur_all_12.11.19.tsv"
-  output:
-    "output/problem_snps_causalrun_eur_12.12.19.tsv",
-    "output/cancer_lib_haploreg_data_leadsnpscombined_mergedids_causalqueryadded_12.12.19.tsv",
-    significant="output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
-  script:
-    "HaploReg_FindingSNPs_withmergedrsIDs.Rmd"
+#rule haploreg_with_merged_rsids:
+#  input:
+#    "output/lib_table_merged_rsids_12.10.19.tsv",
+#    "data/leadsnp_haploreg_results_eur_all_12.11.19.tsv"
+#  output:
+#    "output/problem_snps_causalrun_eur_12.12.19.tsv",
+#    "output/cancer_lib_haploreg_data_leadsnpscombined_mergedids_causalqueryadded_12.12.19.tsv",
+#    significant="output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
+#  script:
+#    "HaploReg_FindingSNPs_withmergedrsIDs.Rmd"
 
 
 rule finding_gwas_risk_allele:
   input:
-    "output/lib_table_merged_rsids_12.10.19.tsv",
+    #"output/lib_table_merged_rsids_12.10.19.tsv",
     # "data/all-causal-SNP-16cancers.txt",
     "data/gwas_catalog_v1.0-associations_e96_r2019-10-14.tsv",
     # "data/cmpra_haploreg_data_withquery.tsv"
-    "output/cmpra_haploreg_data_withquery.tsv"
+    "output/cmpra_haploreg_data_withquery.tsv",
+    "output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
 
   output:
     "output/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_1.14.20.tsv"
@@ -80,7 +82,7 @@ rule mpra_analyze_plasmidrep:
 rule mpra_analyze_merge_background_info:
   input:
     "output/mpranalyze_plasmidrep_112720.tsv",
-    "data/library_risk_allele_adjusted_locus_matchup.tsv"
+    "output/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv"
   output:
     "output/res_merge_plasmidrep_reanalyzed_112820.tsv"
   script:
@@ -88,8 +90,13 @@ rule mpra_analyze_merge_background_info:
 
 rule reanalyzing_hichip:
   input:
-
+    "output/res_merge_plasmidrep_reanalyzed_112820.tsv"
   output:
     "output/res_merge_hichip_nearbygenes_update_113020.tsv"
   script:
     "ReanalyzingHiChIP_11.30.20_reeditforloops_fixing.Rmd"
+
+rule incorporating_equtlgen:
+  input:
+    "data/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfoRemoved-BonferroniAdded.txt",
+    
