@@ -11,12 +11,13 @@ library(MPRAnalyze)
 library(BiocParallel)
 library(pheatmap)
 library(GGally)
+library(here)
 ```
 
 
 Read in counts file
 ```{r}
-lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/nextseq_counts_111920.tsv")
+lib <- read_tsv(here("data/nextseq_counts_111920.tsv"))
 ```
 
 Separate oligo name into locus, allele, barcode
@@ -159,7 +160,7 @@ hist(res$endo_pval, breaks=1000)
 ```
 
 ```{r}
-full_lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/LibraryFiles/library_risk_allele_adjusted_locus_matchup.tsv")
+full_lib <- read_tsv(here("data/library_risk_allele_adjusted_locus_matchup.tsv"))
 
 res_merge <- left_join(res, full_lib, by=c("locus" = "locus_name"))
 
@@ -169,7 +170,7 @@ res_merge <- res_merge %>% rowwise() %>%
   mutate_at(all_of(fdr_vars), function(x) ifelse(is.na(x), 1, x))%>%
   mutate_at(all_of(fc_vars), function(x) ifelse(is.na(x), 0, x))
 
-# write_tsv(res_merge, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_plasmidrep_reanalyzed_112820.tsv")
+write_tsv(res_merge, here("output/res_merge_plasmidrep_reanalyzed_112820.tsv"))
 ```
 
 
