@@ -478,21 +478,21 @@ res_merge_overlap_sig <- res_merge_overlap %>%
     grepl("renal", Disease_expanded) & renal_fdr < 0.01 & abs(renal_logFC) > 0.5 ~ T,
     grepl("ovca", Disease_expanded) & ov_fdr < 0.01 & abs(ov_logFC) > 0.5 ~ T))
 
-    grepl("ast", Disease_expanded) & grepl("Brain", tissue) ~ T,
-    grepl("brca", Disease_expanded) & grepl("Breast", tissue) ~ T,
-    grepl("colon", Disease_expanded) & grepl("Colon", tissue) ~ T,
-    grepl("endo", Disease_expanded) & grepl("Uterus", tissue) ~ T,
-    grepl("eso", Disease_expanded) & grepl("Esophagus", tissue) ~ T,
-    grepl("lymphoma", Disease_expanded) & grepl("EBV", tissue) ~ T,
-    grepl("thy", Disease_expanded) & grepl("Thyroid", tissue) ~ T,
-    grepl("pros", Disease_expanded) & grepl("Prostate", tissue) ~ T,
-    grepl("kc", Disease_expanded) & grepl("Skin", tissue) ~ T,
-    grepl("melanoma", Disease_expanded) & grepl("Skin", tissue) ~ T,
-    grepl("panc", Disease_expanded) & grepl("Pancreas", tissue) ~ T,
-    grepl("renal", Disease_expanded) & grepl("Kidney", tissue) ~ T,
-    grepl("ovca", Disease_expanded) & grepl("Ovary", tissue) ~ T,
-    T ~ F
-  ))
+  #   grepl("ast", Disease_expanded) & grepl("Brain", tissue) ~ T,
+  #   grepl("brca", Disease_expanded) & grepl("Breast", tissue) ~ T,
+  #   grepl("colon", Disease_expanded) & grepl("Colon", tissue) ~ T,
+  #   grepl("endo", Disease_expanded) & grepl("Uterus", tissue) ~ T,
+  #   grepl("eso", Disease_expanded) & grepl("Esophagus", tissue) ~ T,
+  #   grepl("lymphoma", Disease_expanded) & grepl("EBV", tissue) ~ T,
+  #   grepl("thy", Disease_expanded) & grepl("Thyroid", tissue) ~ T,
+  #   grepl("pros", Disease_expanded) & grepl("Prostate", tissue) ~ T,
+  #   grepl("kc", Disease_expanded) & grepl("Skin", tissue) ~ T,
+  #   grepl("melanoma", Disease_expanded) & grepl("Skin", tissue) ~ T,
+  #   grepl("panc", Disease_expanded) & grepl("Pancreas", tissue) ~ T,
+  #   grepl("renal", Disease_expanded) & grepl("Kidney", tissue) ~ T,
+  #   grepl("ovca", Disease_expanded) & grepl("Ovary", tissue) ~ T,
+  #   T ~ F
+  # ))
 # check gtex_spec and eqtl-gen
 res_merge_overlap <- res_merge_gtex_spec %>% rowwise() %>%
   mutate(eqtlgen_gtexall_overlap =
