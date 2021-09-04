@@ -41,8 +41,8 @@ Get the haploreg data for lead and causal snps like in HaploReg_FindingSNPs
 
 
 ```{r}
-# lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_table_merged_rsids_12.10.19.tsv")
-lib <- read_tsv(here("data/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"))
+lib <- read_tsv(here("output/lib_table_merged_rsids_12.10.19.tsv"))
+# lib <- read_tsv(here("data/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"))
 # lib_bg <- read.table(here("data/all-causal-SNP-16cancers.txt"), 
 #                        stringsAsFactors = F, sep="\t", header=T )
 gwas_cat <- read_tsv(here("data/gwas_catalog_v1.0-associations_e96_r2019-10-14.tsv"))
