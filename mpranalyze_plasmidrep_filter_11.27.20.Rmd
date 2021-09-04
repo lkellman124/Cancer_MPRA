@@ -7,6 +7,7 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 # library(readr)
 library(tidyverse)
+library(stringr)
 library(MPRAnalyze)
 library(BiocParallel)
 library(pheatmap)
@@ -91,7 +92,6 @@ I've been running MPRAnalyze separately for each cell type, made it easier to in
 - considering adding a filter for 3 or more barcodes represented in each cell type, would need to be in the for loop
 ```{r}
 cells = unique(str_remove(colnames(rna), "_.*"))
-res = data.frame()
 loci = distinct(dplyr::select(lib_filt, locus))
 library(foreach)
 library(doParallel)
@@ -105,72 +105,36 @@ res1 <- foreach (cell=cells, .combine=cbind) %dopar% {
   # rna col annot needs to be made
   rna_cell <- rna[,grepl(cell, colnames(rna))]
   
-  col_rna = data.frame(condition = str_remove(colnames(rna_cell), "^.*-"), 
-                       batch = str_remove(str_remove(colnames(rna_cell), "^.*_"), "-.*$"),
-                       barcode = str_remove(str_remove(colnames(rna_cell), "-ref$|-alt$"), ".*-"))
+  col_rna = data.frame(condition = stringr::str_remove(colnames(rna_cell), "^.*-"), 
+                       batch = stringr::str_remove(stringr::str_remove(colnames(rna_cell), "^.*_"), "-.*$"),
+                       barcode = stringr::str_remove(stringr::str_remove(colnames(rna_cell), "-ref$|-alt$"), ".*-"))
   rownames(col_rna) <- colnames(rna_cell)
   col_rna$barcode_allelic <- interaction(col_rna$barcode, col_rna$condition)
-  obj <- MpraObject(dnaCounts =dna, rnaCounts =rna_cell, dnaAnnot = col_dna, 
-                    rnaAnnot = col_rna)
-  obj <- estimateDepthFactors(obj, lib.factor = "dna_batch", which.lib = "dna", 
-                            depth.estimator = "uq")
-  obj <- estimateDepthFactors(obj,which.lib = "rna", lib.factor= "batch",
-                            depth.estimator = "uq")
-  obj <- analyzeComparative(obj = obj, 
-                           dnaDesign = ~ barcode_allelic, 
-                           rnaDesign = ~ condition, 
-                           reducedDesign = ~ 1)
+  obj <- MPRAnalyze::MpraObject(dnaCounts =dna, rnaCounts =rna_cell, dnaAnnot = col_dna, 
+                                rnaAnnot = col_rna)
+  obj <- MPRAnalyze::estimateDepthFactors(obj, lib.factor = "dna_batch", which.lib = "dna", 
+                                          depth.estimator = "uq")
+  obj <- MPRAnalyze::estimateDepthFactors(obj,which.lib = "rna", lib.factor= "batch",
+                                          depth.estimator = "uq")
+  obj <- MPRAnalyze::analyzeComparative(obj = obj, 
+                                       dnaDesign = ~ barcode_allelic, 
+                                       rnaDesign = ~ condition, 
+                                       reducedDesign = ~ 1)
 # should I have batch in the rnaDesign? Try both:
 #   obj <- analyzeComparative(obj = obj, 
 #                           dnaDesign = ~ barcode_allelic, 
 #                           rnaDesign = ~ condition + batch, 
 #                           reducedDesign = ~ batch)
-  res_cell <- testLrt(obj) 
+  res_cell <- MPRAnalyze::testLrt(obj) 
   res_cell <- dplyr::select(res_cell, fdr, pval, logFC)
   colnames(res_cell) <- paste(cell, colnames(res_cell), sep="_")
-  res_cell <- left_join(loci,rownames_to_column(res_cell, "locus"))
+  res_cell <- dplyr::left_join(loci, tibble::rownames_to_column(res_cell, "locus"))
 }
 
 res_locus <- res1$locus
 res1_write <- res1 %>% dplyr::select(-locus)
 res1_write$locus <- res_locus
-res1_write <- res1_write[c(49, 1:48)]
-write_tsv(res1_write, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/mpranalyze_plasmidrep_112720.tsv")
+res1_write <- res1_write %>% dplyr::select(locus, dplyr::everything())
+write_tsv(res1_write, here("output/mpranalyze_plasmidrep_112720.tsv"))
 
 ```
-
-
-```{r}
-dna_rep_qq <- res %>% 
-  dplyr::select(endo_pval) %>% 
-  mutate(theoretical_quantile = cume_dist(endo_pval))
-
-dna_rep_qq %>% 
-  ggplot(aes(x = -log10(theoretical_quantile), y = -log10(endo_pval))) +
-  geom_point(size = 1) +
-  geom_abline(slope = 1, intercept = 0, color = scales::brewer_pal(palette = "Set1")(1)[1]) +
-  labs(x = "-log10 theoretical p-value", y = "-log10 observed p-value",
-       title = "HMEC QQ-plot") +
-  cowplot::theme_cowplot() 
-
-hist(res$gm_pval, breaks=1000)
-hist(res$endo_pval, breaks=1000)
-
-
-```
-
-```{r}
-full_lib <- read_tsv(here("data/library_risk_allele_adjusted_locus_matchup.tsv"))
-
-res_merge <- left_join(res, full_lib, by=c("locus" = "locus_name"))
-
-fdr_vars <- colnames(res_merge)[grepl("fdr", colnames(res_merge))]
-fc_vars <- colnames(res_merge)[grepl("logFC", colnames(res_merge))]
-res_merge <- res_merge %>% rowwise() %>% 
-  mutate_at(all_of(fdr_vars), function(x) ifelse(is.na(x), 1, x))%>%
-  mutate_at(all_of(fc_vars), function(x) ifelse(is.na(x), 0, x))
-
-write_tsv(res_merge, here("output/res_merge_plasmidrep_reanalyzed_112820.tsv"))
-```
-
-
