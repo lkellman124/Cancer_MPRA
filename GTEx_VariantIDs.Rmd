@@ -9,10 +9,10 @@ library(readr)
 ```
 
 ```{r}
-lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GenomicCoordinates/lib_studies_idmerge_diseasesexpanded_coords3738_12.13.19.tsv")
+# lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GenomicCoordinates/lib_studies_idmerge_diseasesexpanded_coords3738_12.13.19.tsv")
+lib <- read_tsv(here("output/lib_table_merged_rsids_12.10.19.tsv"))
 
-
-gtex_lookup <- read_tsv("~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/GTEx_Analysis_v8_eQTL/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table.txt")
+gtex_lookup <- read_tsv(here("data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table.txt"))
 
 
 ```
@@ -42,7 +42,7 @@ gtex_rsids_causal <- dplyr::filter(gtex_rsids, rs_id_dbSNP151_GRCh38p7 %in% lib$
 lib <- left_join(lib, gtex_rsids_causal,
                  by=c("Causal_SNP" = "rs_id_dbSNP151_GRCh38p7"))
 # expands it by a few
-write_tsv(lib, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GTEx_IDs_eQTLs/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv")
+write_tsv(lib, here("output/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv"))
 # gtex_rsids_causal_sum <- gtex_rsids_causal %>% group_by(rs_id_dbSNP151_GRCh38p7) %>%
   summarise(gtex_alt = paste(unique(alt), collapse=","), 
             gtex_num_alt_per_site = unique(num_alt_per_site),
@@ -65,7 +65,7 @@ write_tsv(lib, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/Format
 Checking merged ids - ignore
 
 ```{r}
-merge_conversion <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/MergingSNPs/lib_snps_merged_rsid_conversion.tsv")
+merge_conversion <- read_tsv(here("output/lib_snps_merged_rsid_conversion.tsv"))
 merge_conversion <- merge_conversion %>% mutate(causal_merged_rsID = paste("rs", causal_merged_rsID, sep=""),
                                                 lead_merged_rsID = paste("rs", lead_merged_rsID, sep=""))
 merge_leftovers_causal <- dplyr::filter(merge_conversion, causal_merged_rsID %in% gtex_leftover)
