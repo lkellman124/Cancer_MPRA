@@ -20,7 +20,7 @@ eqtlgen <- read_tsv(here("data/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfo
 #res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/DataAnalysis/Analysis_9.21.20/res_merged_9.21.20.tsv")
 res_merge <- read_tsv(here("output/res_merge_hichip_nearbygenes_update_113020.tsv"))
 # res_hmec <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Sequencingv3/NextSeq_Pool1/Temp_HMEC_Analysis/mpranalyze_hmecNextSeq_oldpGF.tsv")
-res_merge <- right_join(res_hmec, res_merge)
+# res_merge <- right_join(res_hmec, res_merge)
 res_merge <- dplyr::filter(res_merge, !is.na(Causal_SNP))
 ```
 
@@ -35,9 +35,9 @@ res_merge <- dplyr::filter(res_merge, !is.na(Causal_SNP))
 ```{r}
 eg_snps <- distinct(dplyr::select(eqtlgen, SNP, SNPChr, SNPPos, AssessedAllele, OtherAllele))
 # how many snps would be gained by using the position instead of rsid?
-res_snps <- distinct(dplyr::select(res_merge, Causal_SNP, Chr_37, Start_37, Ref, Alt))
+res_snps <- distinct(dplyr::select(res_merge, Causal_SNP, Chr, Start, Ref, Alt))
 
-check_pos <- left_join(res_snps, eg_snps, by=c("Chr_37"="SNPChr", "Start_37"="SNPPos"))
+check_pos <- left_join(res_snps, eg_snps, by=c("Chr"="SNPChr", "Start"="SNPPos"))
 sum(!is.na(check_pos$SNP))
 # 3496
 # 3828?
