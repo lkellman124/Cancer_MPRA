@@ -19,11 +19,11 @@ library(biomaRt)
 #lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GTEx_IDs_eQTLs/lib_studies_idmerge_diseasesexpanded_coords3738_gtexID_12.13.19.tsv")
 
 
-lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GTEx_IDs_eQTLs/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv")
+lib <- read_tsv(here("output/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv"))
 ```
 #### Find all the significant SNP-egene pairs in our tissues from gtex v8
 ```{r}
-file_list <- list.files(path="~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/GTEx_Analysis_v8_eQTL/",
+file_list <- list.files(path=here("data/GTEx_Analysis_v8_eQTL/"),
                         pattern = ".*signif_variant_gene_pairs.txt$", full.names=T)
 files_filt <- file_list[grepl("Brain|Colon|EBV|Esop|Thyroid|Skin|Pancreas|Breast|Lung|Uterus|Kidney|Ovary|Prostate", file_list)]
 variant_ids <- unique(lib$variant_id)
@@ -37,9 +37,9 @@ for (file_name in files_filt){
 }
 
 # write_tsv(egene_pairs, "~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/significant_egene_pairs_for_snps_in_gtex.txt")  
-write_tsv(egene_pairs, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/GTEx/significant_egene_pairs_for_snps_in_gtex_tissue_filtered_1.13.20.txt")  
+write_tsv(egene_pairs, here("output/significant_egene_pairs_for_snps_in_gtex_tissue_filtered_1.13.20.txt"))
 
-egene_pairs <- read_tsv("~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/significant_egene_pairs_for_snps_in_gtex.txt")
+# egene_pairs <- read_tsv(here("output/significant_egene_pairs_for_snps_in_gtex.txt"))
 ```
 #### Check into the misfit variant ids
 ```{r}
@@ -69,13 +69,13 @@ egenes_hgnc <- egene_filt %>% mutate(gene_id = str_remove(gene_id, "\\.[0-9]+$")
 features=c('ensembl_gene_id','ensembl_transcript_id','entrezgene_id','hgnc_symbol', 'external_gene_name','refseq_mrna')
 host='www.ensembl.org'
 # human
-human_file='~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/geneID_mapping_human.tsv'
+# human_file=here('~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/geneID_mapping_human.tsv')
 hmart=useMart('ENSEMBL_MART_ENSEMBL', dataset='hsapiens_gene_ensembl',host=host)
 results=getBM(attributes=features,mart=hmart)
 # write.table(results,human_file,sep='\t',quote=FALSE,row.names=FALSE,col.names=TRUE)
 
 # or skip to:
-results = read_tsv('~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/geneID_mapping_human.tsv')
+# results = read_tsv('~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/geneID_mapping_human.tsv')
 
 egene_med <- egene_pairs %>% mutate(gene_id = str_remove(gene_id, "\\.[0-9]+"))
 key = dplyr::select(results, ensembl_gene_id, hgnc_symbol) %>% dplyr::filter(ensembl_gene_id %in% egene_med$gene_id) %>%
@@ -93,7 +93,7 @@ egene_med <- egene_med %>% rowwise() %>%
 Write out the large df, then collapse it down to something I can put next to results df
 ```{r}
 #write_tsv(egene_med, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/GTEx/Uncollapsed_tissuefilt_egenesnp_pairs.txt")
-egene_med <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/GTEx/Uncollapsed_tissuefilt_egenesnp_pairs.txt")
+# egene_med <- read_tsv(here("output/Uncollapsed_tissuefilt_egenesnp_pairs.txt"))
 
 # want to add tissue specific egenes
 lib_gtex <- left_join(dplyr::select(lib, Causal_SNP, Ref,Alt, Disease_expanded, variant_id), 
@@ -132,63 +132,10 @@ gtex_tissue_coll <- gtex_tissue_annot %>% group_by(variant_id) %>%
 
 lib_gtex_merge <- left_join(lib, gtex_tissue_coll, by=c("variant_id"="variant_id"))
 
-write_tsv(lib_gtex_merge, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv")
+write_tsv(lib_gtex_merge, here("output/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv"))
 
 # write_tsv(lib_gtex, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_1.9.20.tsv")
     
 # lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_1.9.20.tsv")
 
 ```
-
-
-
-
-OLD DON'T RUN
-```{r}
-
-gtex_tissue_filtered <- dplyr::filter(gtex_tissue_filtered, correct_tissue)
-gtex_to_join <- dplyr::select(gtex_tissue_filtered, variant_id, hgnc) %>% distinct()
-gtex_to_join <- gtex_to_join %>% group_by(variant_id) %>% 
-  summarise(gtex_egenes_correct_tissue = paste(sort(unique(hgnc)), collapse=","))
-
-
-# collapse the egene sets
-egenes <- egene_med %>% group_by(variant_id) %>%
-  summarise(gtex_egenes = paste(unique(hgnc), collapse=","),
-            gtex_egenes_ens = paste(unique(gene_id), collapse=","),
-            gtex_tissues = paste(unique(tissue), collapse=","),
-            gtex_direction = paste(unique(slope), collapse=","))
-
-duped <- lib_gtex_merge$Causal_SNP[duplicated(lib_gtex_merge$Causal_SNP)]
-dedup <- lib_gtex_merge %>% mutate(varid_allele = str_remove(str_remove(variant_id, "_b38"), "^.*_"),
-                                   same_allele = varid_allele == Alt)
-
-dedup_lost <- dplyr::filter(dedup, (Causal_SNP %in% duped & !(varid_allele == Alt)))
-length(unique(lib_gtex_merge$variant_id))
-dedup <- dedup %>% group_by(Causal_SNP, Alt) %>%
-  summarise_all(function(x)
-    ifelse(length(x) > 1, paste(sort(unique(x)), collapse=","), x))
-
-
-
-lib_gtex_merge <- left_join(lib, egenes, by=c("variant_id"="variant_id"))
-lib_gtex_merge <- left_join(lib_gtex_merge, gtex_to_join)
-
-
-
-length(unique(lib_gtex_merge$locus_name))
-
-    variant_id_test = ifelse(length(variant_id) > 1,
-                                  paste(sort(unique(variant_id)), collapse=","),
-                                  variant_id)
-                            
-  
-  dplyr::filter(dedup, !(Causal_SNP %in% duped & !(varid_allele == Alt)))
-sum(dedup_lost$locus_name %in% dedup$locus_name)
-length(unique(dedup_lost$locus_name))
-
-
-```
-
-
-
