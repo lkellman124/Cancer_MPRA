@@ -1,0 +1,25 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Add in motifs from haploreg
+
+
+
+```{r}
+haplo <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/Linkage_and_risk_allele/HaploReg/cmpra_haploreg_data_withquery.tsv")
+lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_1.14.20.tsv")
+
+haplo_motif <- haplo %>% dplyr::select(rsID, Motifs) %>%
+  group_by(rsID) %>% summarise(haploreg_motifs = paste(unique(unlist(str_split(Motifs, ";"))), collapse=","))
+
+lib <- left_join(lib, haplo_motif, by=c("Causal_SNP"="rsID"))
+write_tsv(lib, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_motifs_1.14.20.tsv")
+
+```
+
