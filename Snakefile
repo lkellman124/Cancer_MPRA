@@ -97,6 +97,10 @@ rule reanalyzing_hichip:
     "ReanalyzingHiChIP_11.30.20_reeditforloops_fixing.Rmd"
 
 rule incorporating_equtlgen:
+  script: 
+    "IncorporatingeQTLGen.Rmd"
   input:
-    "data/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfoRemoved-BonferroniAdded.txt",
-    
+    "data/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfoRemoved-BonferroniAdded.txt",  # from eQTLGen DB
+    "output/res_merge_hichip_nearbygenes_update_113020.tsv"
+  output:
+    "output/res_merge_witheQTLgen_11.1.2020.tsv"
