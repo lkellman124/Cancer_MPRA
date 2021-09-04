@@ -8,25 +8,26 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(tidyverse)
 library(viridis)
+library(here)
 ```
 
 Read 
 ```{r}
-eqtlgen <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfoRemoved-BonferroniAdded.txt")
+eqtlgen <- read_tsv(here("data/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfoRemoved-BonferroniAdded.txt"))
 ```
 
 ```{r}
-res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/DataAnalysis/Analysis_9.21.20/res_merged_9.21.20.tsv")
-
-res_hmec <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Sequencingv3/NextSeq_Pool1/Temp_HMEC_Analysis/mpranalyze_hmecNextSeq_oldpGF.tsv")
+#res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/DataAnalysis/Analysis_9.21.20/res_merged_9.21.20.tsv")
+res_merge <- read_tsv(here("output/res_merge_hichip_nearbygenes_update_113020.tsv"))
+# res_hmec <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Sequencingv3/NextSeq_Pool1/Temp_HMEC_Analysis/mpranalyze_hmecNextSeq_oldpGF.tsv")
 res_merge <- right_join(res_hmec, res_merge)
 res_merge <- dplyr::filter(res_merge, !is.na(Causal_SNP))
 ```
 
 
 ```{r}
-sum(unique(eqtlgen$SNP) %in% res_merge$Causal_SNP)
-sum(unique(res_merge$Causal_SNP) %in% eqtlgen$SNP)
+#sum(unique(eqtlgen$SNP) %in% res_merge$Causal_SNP)
+#sum(unique(res_merge$Causal_SNP) %in% eqtlgen$SNP)
 
 ```
 
@@ -116,9 +117,8 @@ res_merge_eg <- left_join(res_merge,
                                         eqtlgen_egenes, eqtlgen_dir_flipped),
                           by=c("Causal_SNP"="SNP_ID_lib", "Ref"="Ref", "Alt"="Alt"))
 
-# write_tsv(res_merge_eg, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_witheQTLgen_11.1.2020.tsv")
-
-res_merge_eg <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_witheQTLgen_11.1.2020.tsv")
+write_tsv(res_merge_eg, here("output/res_merge_witheQTLgen_11.1.2020.tsv"))
+# res_merge_eg <- read_tsv(here("output/res_merge_witheQTLgen_11.1.2020.tsv"))
 ```
 
 How many eQTLgen egenes per snp?
@@ -395,8 +395,8 @@ ggplot(res_merge_gtex_hmec_hits_spec, aes(x = gtex_egenes_num_spec, fill =gtex_s
 ```
 
 ```{r}
-write_tsv(res_merge_gtex_spec, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_with_eQTLGen_GTExreformat_11.1.20.tsv")
-res_merge_gtex_spec <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_with_eQTLGen_GTExreformat_11.1.20.tsv")
+# write_tsv(res_merge_gtex_spec, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_with_eQTLGen_GTExreformat_11.1.20.tsv")
+# res_merge_gtex_spec <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_with_eQTLGen_GTExreformat_11.1.20.tsv")
 
 ```
 
@@ -536,19 +536,4 @@ gtex_sum <- gtex_sum %>% mutate(gtex_dir_agree = case_when(
 
 ```
 
-
-
-```{r}
-check_mpra_dir <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Sequencingv3/NextSeq_Pool1/nextseq_pool1_counts_oldpGFcts.tsv")
-check_mpra_dir_locus_2267 <- dplyr::filter(check_mpra_dir, grepl("locus_2267", oligo))
-# ref higher, mpra logFC higher
-```
-
-
-Make an upsetr plot
-```{r}
-lt = 
-m = make_comb_mat(lt)
-
-```
 
