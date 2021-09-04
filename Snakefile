@@ -2,7 +2,7 @@ AREAS = "Brain Colon EBV Esop Thyroid Skin Pancreas Breast Lung Uterus Kidney Ov
 POPS = ""
 
 rule all:
-  input: "PLACEHOLDER"
+  input: "output/res_merge_withhitannot_031021.tsv"
 
 rule make_res_ids:
   input: 
@@ -104,3 +104,13 @@ rule incorporating_equtlgen:
     "output/res_merge_hichip_nearbygenes_update_113020.tsv"
   output:
     "output/res_merge_witheQTLgen_11.1.2020.tsv"
+
+rule alternate_shared_egene_visualizations:
+  script:
+    "alternatesharedegenevisualizations.Rmd"
+  input:
+    "data/enrichment.Process_sharedhconvert_vsuniverse_GOBP.txt",  # where from?
+    "output/res_merge_withhitannot_031021.tsv"  # where do you come from?
+  output:
+    "output/alternate_pathway_vis.pdf",
+    "output/alternate_common_gene_vis.pdf"

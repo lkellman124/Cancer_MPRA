@@ -7,10 +7,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(pheatmap)
+library(here)
 ```
 
 ```{r}
-shared <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/MakingFigures/SharedeGeneNetwork/enrichment.Process_sharedhconvert_vsuniverse_GOBP.txt")
+shared <- read_tsv(here("data/enrichment.Process_sharedhconvert_vsuniverse_GOBP.txt"))
 shared <- shared[order(shared$`false discovery rate`),]
 shared <- shared %>% mutate(Term=factor(`term description`, levels=`term description`))
 ```
@@ -46,13 +47,13 @@ termplot <- ggplot(shared_filt, aes(x = Term, y = -log10(`false discovery rate` 
   geom_col() + coord_flip() + theme_classic() + 
   ylab("-log10(FDR)") + xlab("GO Biological Process")
 termplot
-ggsave("~/Documents/MPRA/Cancer_MPRA_Scaleup/MakingFigures/SharedeGeneNetwork/alternate_pathway_vis.pdf", 
+ggsave(here("output/alternate_pathway_vis.pdf"), 
        device="pdf", plot = termplot, width = 5.5, height = 4, unit = "in", dpi="print")
 ```
 
 
 ```{r}
-res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_withhitannot_031021.tsv")
+res_merge <- read_tsv(here("output/res_merge_withhitannot_031021.tsv"))
 egene_mat <- res_merge  %>% filter(!is.na(hit_spec)) %>%
   dplyr::select(hit_spec, eqtlgen_egenes, gtex_egenes_spec, hichip_egene,
                 genes_within_10kb)
@@ -93,7 +94,7 @@ ggplot(dat3, aes(variable, egene)) + geom_tile(aes(fill = value),
 
 Not working well, going back to pheatmap
 ```{r fig.width=9, fig.height=4}
-res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_withhitannot_031021.tsv")
+res_merge <- read_tsv(here("output/res_merge_withhitannot_031021.tsv"))
 egene_mat <- res_merge  %>% filter(!is.na(hit_spec)) %>%
   dplyr::select(hit_spec, eqtlgen_egenes, gtex_egenes_spec, hichip_egene,
                 genes_within_10kb)
@@ -126,7 +127,7 @@ pheatmap(t(egene_mat_t), treeheight_row=0, treeheight_col=0,
 ```
 Now trying with just shared egenes
 ```{r fig.width = 5, fig.height = 3}
-res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_withhitannot_031021.tsv")
+res_merge <- read_tsv(here("output/res_merge_withhitannot_031021.tsv"))
 egene_mat <- res_merge  %>% filter(!is.na(hit_spec)) %>%
   dplyr::select(hit_spec, eqtlgen_egenes, gtex_egenes_spec, hichip_egene,
                 genes_within_10kb)
@@ -174,7 +175,7 @@ pheatmap(t(egene_mat_t), treeheight_row=0, treeheight_col=0,
 pheatmap(egene_mat_t, color=myColor, treeheight_row=0, treeheight_col=0,
          annotation_row = source_annot, fontsize_row=3,
          fontsize_col=10, annotation_colors= ann_colors,show_rownames=F,
-         filename= c("~/Documents/MPRA/Cancer_MPRA_Scaleup/MakingFigures/SharedeGeneNetwork/alternate_common_gene_vis.pdf"), width =4, height = 4)
+         filename= c(here("output/alternate_common_gene_vis.pdf")), width =4, height = 4)
 
 ```
 
