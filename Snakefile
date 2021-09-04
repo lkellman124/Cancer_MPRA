@@ -20,7 +20,7 @@ rule haploreg_simpler:
   output:
     wrong="output/cmpra_haploreg_data.tsv",
     right="output/cmpra_haploreg_data_withquery.tsv",
-    "output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
+    right2="output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
   script:
     "HaploReg_FindingSNPs.Rmd"
 
@@ -63,8 +63,8 @@ rule gtex_variant_ids:
     
 rule gtex_genes:
   input:
-    "output/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv",
-    expand("data/LK_GTEx_Analysis_v8_eQTL/{area}.v8.signif_variant_gene_pairs.txt", area=AREAS)
+    "output/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv"
+    # expand("data/LK_GTEx_Analysis_v8_eQTL/{area}.v8.signif_variant_gene_pairs.txt", area=AREAS)
   output:
     "output/significant_egene_pairs_for_snps_in_gtex_tissue_filtered_1.13.20.txt",
     "output/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv"
@@ -97,20 +97,28 @@ rule reanalyzing_hichip:
     "ReanalyzingHiChIP_11.30.20_reeditforloops_fixing.Rmd"
 
 rule incorporating_equtlgen:
-  script: 
-    "IncorporatingeQTLGen.Rmd"
   input:
     "data/2019-12-11-cis-eQTLsFDR0.05-ProbeLevel-CohortInfoRemoved-BonferroniAdded.txt",  # from eQTLGen DB
     "output/res_merge_hichip_nearbygenes_update_113020.tsv"
   output:
     "output/res_merge_witheQTLgen_11.1.2020.tsv"
+  script: 
+    "IncorporatingeQTLGen.Rmd"
 
 rule alternate_shared_egene_visualizations:
-  script:
-    "alternatesharedegenevisualizations.Rmd"
   input:
     "data/enrichment.Process_sharedhconvert_vsuniverse_GOBP.txt",  # where from?
     "output/res_merge_withhitannot_031021.tsv"  # where do you come from?
   output:
     "output/alternate_pathway_vis.pdf",
     "output/alternate_common_gene_vis.pdf"
+  script:
+    "alternatesharedegenevisualizations.Rmd"
+
+rule marking_hits_and_converting_diseases:
+  input:
+    "output/res_merge_witheQTLgen_11.1.2020.tsv"
+  output:
+    "output/res_merge_withhitannot_031021.tsv"
+  script:
+    "MarkingHitsandConvertingDiseases.Rmd"
