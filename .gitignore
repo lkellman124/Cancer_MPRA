@@ -5,3 +5,4 @@
 .DS_Store
 ._*
 LK_GTEx_Analysis_v8_eQTL
+.snakemake
