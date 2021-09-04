@@ -96,6 +96,8 @@ Write out the large df, then collapse it down to something I can put next to res
 #write_tsv(egene_med, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/GTEx/Uncollapsed_tissuefilt_egenesnp_pairs.txt")
 # egene_med <- read_tsv(here("output/Uncollapsed_tissuefilt_egenesnp_pairs.txt"))
 
+lib <- dplyr::rename(lib, Disease_expanded = disease_expanded)
+
 # want to add tissue specific egenes
 lib_gtex <- left_join(dplyr::select(lib, Causal_SNP, Ref,Alt, Disease_expanded, variant_id), 
                       dplyr::select(egene_med, variant_id, gene_id, tissue, hgnc, slope),
