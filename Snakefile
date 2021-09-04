@@ -1,4 +1,5 @@
 AREAS = "Brain Colon EBV Esop Thyroid Skin Pancreas Breast Lung Uterus Kidney Ovary Prostate".split()
+POPS = ""
 
 rule all:
   input: "PLACEHOLDER"
@@ -12,7 +13,36 @@ rule make_res_ids:
     "output/lib_table_merged_rsids_12.10.19.tsv"
   script:
     "Updating_merged_rsIDs.Rmd"
-    
+
+rule haploreg_simpler:
+  input:
+    "output/lib_table_merged_rsids_12.10.19.tsv"
+  output:
+    "output/cmpra_haploreg_data_withquery.tsv"
+  script:
+    "HaploReg_FindingSNPs.Rmd"
+
+
+rule haploreg_with_merged_rsids:
+  input:
+    "output/lib_table_merged_rsids_12.10.19.tsv",
+    "data/leadsnp_haploreg_results_eur_all_12.11.19.tsv"
+  output:
+    "output/problem_snps_causalrun_eur_12.12.19.tsv",
+    "output/cancer_lib_haploreg_data_leadsnpscombined_mergedids_causalqueryadded_12.12.19.tsv",
+    significant="output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"
+  script:
+    "HaploReg_FindingSNPs_withmergedrsIDs.Rmd"
+
+
+rule finding_gwas_risk_allele:
+  input:
+    "data/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv",
+    # "data/all-causal-SNP-16cancers.txt",
+    "data/gwas_catalog_v1.0-associations_e96_r2019-10-14.tsv"
+  output:
+    "output/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_1.14.20.tsv"
+
 rule gtex_variant_ids:
   input:
     "data/lib_studies_idmerge_diseasesexpanded_coords3738_gtexID_12.13.19.tsv",

@@ -1,0 +1,158 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(here)
+library(tidyverse)
+TIMEOUT <- 300
+```
+
+```{r}
+# lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/RefFiles/snp_locus_tissue_variantid.txt")
+lib <- read_tsv(here("output/lib_table_merged_rsids_12.10.19.tsv"))
+snplist <- unique(c(lib$Causal_SNP, lib$leadSNP))
+# write(snplist, "~/Documents/MPRA/Cancer_MPRA/HaploReg/snp_list_10.17.19.txt")
+```
+
+European haploreg datta
+```{r}
+library(haploR)
+haplo_data_eur <- data.frame()
+lead_snps <- unique(lib$leadSNP)
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "EUR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "https://pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = TIMEOUT, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_eur <- rbind(haplo_data_eur, haplo_bit)
+}
+
+```
+
+```{r}
+# haplo_data_eur <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_eur_all.tsv")
+# write_tsv(haplo_data, "~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_eur_all.tsv")
+
+```
+
+African haploreg data
+```{r}
+haplo_data_afr <- data.frame()
+lead_snps <- unique(lib$leadSNP)
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AFR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "https://pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = TIMEOUT, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_afr <- rbind(haplo_data_afr, haplo_bit)
+}
+
+```
+
+```{r}
+# write_tsv(haplo_data_afr, "~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_afr_all.tsv")
+```
+
+American haploreg data
+```{r}
+haplo_data_amr <- data.frame()
+lead_snps <- unique(lib$leadSNP)
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AMR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "https://pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = TIMEOUT, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_amr  <- rbind(haplo_data_amr, haplo_bit)
+}
+
+```
+
+```{r}
+# write_tsv(haplo_data_amr, "~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_amr_all.tsv")
+```
+
+Asian haploreg data
+```{r}
+haplo_data_asn <- data.frame()
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "ASN", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "https://pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = TIMEOUT * 4, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_asn  <- rbind(haplo_data_asn, haplo_bit)
+}
+# made it to 977
+# haplo_data_asn
+# for (i in 9:12){
+#   haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+#                               file = NULL, study = NULL, ldThresh = 0.8, ldPop = "ASN", 
+#                               epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+#                               url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+#                               timeout = 200, encoding = "UTF-8", verbose = FALSE)
+#   haplo_data_asn  <- rbind(haplo_data_asn, haplo_bit)
+# }
+
+```
+
+```{r}
+# write_tsv(haplo_data_asn, "~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_asn_all.tsv")
+```
+
+Inspect the results
+Want to know:
+- Does ref/alt designation change by which leadsnp
+---- no
+- does it change by population
+---- no
+
+Combining haplotype data from different populations and filtering for SNPs in the cancer library.
+```{r}
+haplo_data <- rbind(haplo_data_eur, haplo_data_amr, haplo_data_asn, haplo_data_afr)
+haplo_data <- haplo_data %>% dplyr::filter(rsID %in% lib$Causal_SNP)
+```
+
+NOTE: many SNPs are well linked to multiple leadSNPs.
+
+Getting rid of the multiple lead snp/same causal snp entries
+```{r}
+haplo_data <- dplyr::select(haplo_data, -query_snp_rsid, -r2, -`D'`, -is_query_snp)
+# haplo_data[is.na(haplo_data)] <- ""
+replacement_list <- as.list(rep("", length(colnames(haplo_data))))
+names(replacement_list) <- colnames(haplo_data)
+haplo_data <- replace_na(haplo_data, replacement_list)
+haplo_data <- distinct(haplo_data)
+```
+
+
+```{r}
+write_tsv(haplo_data, here("output/cmpra_haploreg_data.tsv"))
+```
+
+Should not have done that. Turned out I wanted the lead snps and I want all the leadsnps included
+```{r}
+# haplo_data_amr <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_amr_all.tsv")
+# haplo_data_afr <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_afr_all.tsv")
+# haplo_data_asn <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_asn_all.tsv")
+# haplo_data_eur <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/leadsnp_haploreg_results_eur_all.tsv")
+
+haplo_data <- rbind(haplo_data_eur, haplo_data_amr, haplo_data_asn, haplo_data_afr)
+haplo_data_test <- haplo_data %>% dplyr::filter(rsID %in% c(lib$Causal_SNP, lib$leadSNP))
+
+haplo_data <- dplyr::select(haplo_data, -r2, -`D'`)
+haplo_data <- distinct(haplo_data)
+write_tsv(haplo_data, here("output/cmpra_haploreg_data_withquery.tsv"))
+
+```
+```{r}
+# Checks
+# "rs1004570" %in% c(lib$Causal_SNP, lib$leadSNP) == FALSE
+# sum(!(lib$Causal_SNP %in% haplo_data$rsID)) < 300
+```
+
