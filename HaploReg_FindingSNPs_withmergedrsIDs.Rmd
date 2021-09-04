@@ -1,0 +1,540 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(haploR)
+library(readr)
+library(tidyverse)
+```
+
+```{r}
+lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_table_merged_rsids_12.10.19.tsv")
+snplist <- unique(c(lib$Causal_SNP, lib$leadSNP))
+# write(snplist, "~/Documents/MPRA/Cancer_MPRA/HaploReg/snp_list_10.17.19.txt")
+merge_conversion <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/MergingSNPs/lib_snps_merged_rsid_conversion.tsv")
+merge_conversion <- merge_conversion %>% mutate(causal_merged_rsID = paste("rs", causal_merged_rsID, sep=""),
+                                                lead_merged_rsID = paste("rs", lead_merged_rsID, sep=""))
+```
+
+European haploreg data
+```{r}
+haplo_data_eur <- data.frame()
+lead_snps <- unique(lib$leadSNP)
+possible_missed_conversions = unique(merge_conversion$leadSNP[!(merge_conversion$leadSNP %in% lib$leadSNP)])
+
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "EUR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_eur <- rbind(haplo_data_eur, haplo_bit)
+}
+
+```
+
+```{r}
+write_tsv(haplo_data_eur , "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/leadsnp_haploreg_results_eur_all_12.11.19.tsv")
+
+```
+
+African haploreg data
+```{r}
+haplo_data_afr <- data.frame()
+lead_snps <- unique(lib$leadSNP)
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AFR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_afr <- rbind(haplo_data_afr, haplo_bit)
+}
+
+```
+
+```{r}
+write_tsv(haplo_data_afr, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/leadsnp_haploreg_results_afr_all_12.11.19.tsv")
+
+```
+
+American haploreg data
+```{r}
+haplo_data_amr <- data.frame()
+lead_snps <- unique(lib$leadSNP)
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AMR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_amr  <- rbind(haplo_data_amr, haplo_bit)
+}
+
+for (i in 9:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AMR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_amr  <- rbind(haplo_data_amr, haplo_bit)
+}
+length(unique(haplo_data_amr$query_snp_rsid))
+
+```
+
+```{r}
+write_tsv(haplo_data_amr, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/leadsnp_haploreg_results_amr_all_12.11.19.tsv")
+```
+
+Asian haploreg data
+```{r}
+haplo_data_asn <- data.frame()
+for (i in 0:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "ASN", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_asn  <- rbind(haplo_data_asn, haplo_bit)
+}
+# made it to 977
+haplo_data_asn
+for (i in 9:12){
+  haplo_bit <-  queryHaploreg(query = lead_snps[(i*100):min(i*100+99, length(lead_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "ASN", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_asn  <- rbind(haplo_data_asn, haplo_bit)
+}
+
+```
+
+```{r}
+write_tsv(haplo_data_asn, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/leadsnp_haploreg_results_asn_all_12.11.19.tsv")
+```
+
+Get things that may have been lost due to id merging (only 2 lead snps)
+```{r}
+haplo_missed_asn <-  queryHaploreg(query = possible_missed_conversions, 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "ASN", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+haplo_missed_amr <- queryHaploreg(query = possible_missed_conversions, 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AMR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+
+haplo_missed_afr <- queryHaploreg(query = possible_missed_conversions, 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AFR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+haplo_missed_eur <- queryHaploreg(query = possible_missed_conversions, 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "EUR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+haplo_missed <- rbind(haplo_missed_asn, haplo_missed_amr, haplo_missed_afr, haplo_missed_eur)
+
+```
+
+
+
+Haploreg isn't listing a chromosome for a lot of them. It definitely seems to know where they are though. 
+Looks like a few are missing allele frequency info
+
+
+Inspect the results
+Want to know:
+- Does ref/alt designation change by which leadsnp
+---- no
+- does it change by population
+---- no
+
+Combining haplotype data from different populations and filtering for SNPs in the cancer library.
+NOTE: many SNPs are well linked to multiple leadSNPs.
+
+```{r}
+haplo_data <- rbind(haplo_data_eur, haplo_data_amr, haplo_data_asn, haplo_data_afr)
+haplo_data <- rbind(haplo_data, haplo_missed)
+haplo_data <- haplo_data %>% dplyr::filter(rsID %in% c(lib$Causal_SNP, lib$leadSNP, merge_conversion$Causal_SNP, merge_conversion$leadSNP))
+haplo_data <- dplyr::select(haplo_data, -r2, -`D'`)
+haplo_data <- distinct(haplo_data)
+merged_ids_causal <- dplyr::select(merge_conversion, Causal_SNP, causal_merged_rsID)
+colnames(merged_ids_causal) <- c("old_name", "merged_name")
+merged_ids_lead <- dplyr::select(merge_conversion, leadSNP, lead_merged_rsID)
+colnames(merged_ids_lead) <- c("old_name", "merged_name")
+merged_ids <- distinct(rbind(merged_ids_causal, merged_ids_lead))
+
+# now switch the merged ids back to the right version
+haplo_data <- haplo_data %>% rowwise() %>% mutate(rsID = ifelse(rsID %in% c(lib$Causal_SNP, lib$leadSNP),
+                                                  rsID,
+                                                  merged_ids$merged_name[merged_ids$old_name == rsID]),
+                                    query_snp_rsid = ifelse(query_snp_rsid %in% c(lib$Causal_SNP, lib$leadSNP),
+                                                  query_snp_rsid,
+                                                  merged_ids$merged_name[merged_ids$old_name == query_snp_rsid]))
+
+write_tsv(haplo_data, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/cancer_lib_haploreg_data_withmergedsnpids_12.12.19.tsv")
+
+haplo_data <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/cancer_lib_haploreg_data_withmergedsnpids_12.12.19.tsv")
+
+sum(!(lead_snps %in% haplo_data$query_snp_rsid))
+# 48 lead snps aren't in the data set
+# 65 when not on the union merge set
+sum(!(merge_conversion$lead_merged_rsID %in% haplo_data$query_snp_rsid))
+# 107
+sum(!(merge_conversion$leadSNP %in% haplo_data$query_snp_rsid))
+# 122
+sum(!(merge_conversion$Causal_SNP %in% haplo_data$rsID | merge_conversion$causal_merged_rsID %in% haplo_data$rsID))
+# 219
+sum(!(merge_conversion$Causal_SNP %in% haplo_data$rsID))
+# 251
+sum(!( merge_conversion$causal_merged_rsID %in% haplo_data$rsID))
+# 219
+sum(!(merge_conversion$Causal_SNP %in% haplo_data$rsID))
+```
+Take the new haplo_data with merged snps added in and ids converted back to current
+Make a column of all lead snps for each snp
+
+```{r}
+haplo_data_leadcombined <- haplo_data %>% group_by(rsID, chr, pos_hg38, ref, alt, AFR, AMR, ASN, EUR, Motifs, eQTL, gwas, Promoter_histone_marks,
+                                                   Enhancer_histone_marks,dbSNP_functional_annotation, 
+                                                   grasp, DNAse) %>% 
+  summarise(all_lead_snps = paste(unique(query_snp_rsid), collapse=","))
+
+
+haplo_data_leadcombined <- dplyr::select(haplo_data_leadcombined, rsID, all_lead_snps, chr, pos_hg38, ref, alt, AFR, 
+                                         AMR, ASN, EUR, Motifs, eQTL, gwas, Promoter_histone_marks,
+                                         Enhancer_histone_marks,dbSNP_functional_annotation, 
+                                         grasp, DNAse)
+haplo_data_leadcombined <- ungroup(haplo_data_leadcombined)
+length(unique(haplo_data_leadcombined$rsID))
+# 6087
+length(unique(c(lib$Causal_SNP, lib$leadSNP)))
+# 6292
+write_tsv(haplo_data_leadcombined, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/cancer_lib_haploreg_data_leadsnpscombined_mergedids_12.12.19.tsv")
+
+haplo_data_leadcombined <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/cancer_lib_haploreg_data_leadsnpscombined_mergedids_12.12.19.tsv")
+```
+
+
+Check that each library-annotated leadSNP shows up as expected. 
+```{r}
+lib_lead_unnest <- lib %>% mutate(leadSNP_unnest = str_split(leadSNP, ","))
+lib_lead_unnest <- unnest(lib_lead_unnest, leadSNP_unnest)
+lib_haplolead_old <- left_join(lib_lead_unnest, dplyr::select(haplo_data_leadcombined, rsID, all_lead_snps), by=c("Causal_SNP" = "rsID")) %>% ungroup() %>%
+  rowwise() %>%
+  mutate(correct_lead = sum(grepl(leadSNP_unnest, all_lead_snps)))
+sum(lib_haplolead$correct_lead==0, na.rm=T)
+# 274 don't match the lead snp (down from 288 unmerged)
+sum(is.na(lib_haplolead$all_lead_snps))
+# 222 NA
+# unnested the lead snps, now it's 270
+sum(is.na(lib_haplolead$all_lead_snps) & lib_haplolead$Cancer_eQTL)
+# 2
+sum(lib_haplolead$correct_lead==0 & lib_haplolead$Cancer_eQTL, na.rm=T)
+# 1
+sum(is.na(lib_haplolead$all_lead_snps) & lib_haplolead$correct_lead==0, na.rm=T)
+sum(!(is.na(lib_haplolead$all_lead_snps)) & lib_haplolead$correct_lead==0, na.rm=T)
+
+# 221
+
+
+```
+
+The groups:
+lead snps NA - 222, 221 have correct_lead ==0, 1 has correct_lead == na
+correct lead == 0 & lead snps !NA - 53
+
+Check lead snps na
+- the correct_lead == na is rs111307654, a cancer eqtl with no lead snp annotated
+```{r}
+check_nas = lib_haplolead[is.na(lib_haplolead$all_lead_snps),]
+check_nas = lib_haplolead[is.na(lib_haplolead$all_lead_snps) & !(is.na(lib_haplolead$correct_lead)),]
+
+
+
+
+```
+
+
+
+causal snp - rs34510642, lead snp - rs658191, not a merge thing
+it's one of the ones where the it doesn't come up for the lead snp but the lead snp comes up for it. 
+re-run these problem snps
+
+rs34510642, lead snp rs658191 really don't seem to be linked on haploreg - seems like a version issue. haploreg v2 is ok.
+
+For rs71062735, rs12077974, it seems like in haploreg v2 they're right at 0.8, with rs12077974 listed for rs71062736 but not vice versa.
+
+rs35952432, rs71546598
+- causal snp rs71546598 linked to rs35952432 in v2 and v4 (but not a symmetric relationship, this is weird)
+
+Some of the problem is asymmetric linkage relationships. Maybe should put the NA causal snps in themselves, and see if they pull out lead SNPs
+
+204 problem snps
+```{r}
+problem_snps <- unique(lib_haplolead$Causal_SNP[is.na(lib_haplolead$all_lead_snps) | lib_haplolead$correct_lead == 0 ])
+# if haploreg can't find the snp it throws an error. So remove the ones that have been a problem
+# first time around:
+  # ran up to 110, then 111:115, 118
+  # problems: 116, 117, 119, 120
+  # 117 is rs62065377, not in 1000 genomes phase i project, not in haploreg v4 or v2. merge problem.  
+  # 116 is rs2271730, which is a merged id from rs71377289, haploreg doesn't recognize the merged one. Lead snp is good
+haplo_data_problem_snps_asn_temp <- data.frame()
+
+problem_snps <- problem_snps[-114]
+
+
+# failed on 114 rs1706733 - not in data set - it's a merged id problem
+
+
+for (i in 24:40){
+  print((i*5):min(i*5+4, length(problem_snps)))
+  print(problem_snps[(i*5):min(i*5+4, length(problem_snps))])
+  haplo_bit <-  queryHaploreg(query = problem_snps[(i*5):min(i*5+4, length(problem_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "ASN", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_problem_snps_asn_temp  <- rbind(haplo_data_problem_snps_asn_temp, haplo_bit)
+}
+# failed on 105-119
+# 
+
+
+length(unique(haplo_data_problem_snps_asn_temp$query_snp_rsID))
+grep(unique(haplo_data_problem_snps_asn_temp$query_snp_rsid)[19], problem_snps)
+
+#############
+
+haplo_data_problem_snps_amr_temp = data.frame()
+for (i in 11:21){
+  print((i*10):min(i*10+9, length(problem_snps)))
+  print(problem_snps[(i*10):min(i*10+9, length(problem_snps))])
+  haplo_bit <-  queryHaploreg(query = problem_snps[(i*10):min(i*10+9, length(problem_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AMR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_problem_snps_amr_temp  <- rbind(haplo_data_problem_snps_amr_temp, haplo_bit)
+}
+
+for (i in 100:119){
+  print(i)
+  print(problem_snps[i])
+  haplo_bit <-  queryHaploreg(query = problem_snps[i], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AMR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_problem_snps_amr_temp  <- rbind(haplo_data_problem_snps_amr_temp, haplo_bit)
+}
+
+# re-run 100-124
+# write_tsv(haplo_data_problem_snps_amr_temp, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_amr_12.12.19.tsv")
+haplo_data_problem_snps_amr_temp <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_amr_12.12.19.tsv")
+
+
+######################
+
+haplo_data_problem_snps_afr_temp = data.frame()
+for (i in 0:20){
+  print((i*10):min(i*10+9, length(problem_snps)))
+  print(problem_snps[(i*10):min(i*10+9, length(problem_snps))])
+  haplo_bit <-  queryHaploreg(query = problem_snps[(i*10):min(i*10+9, length(problem_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AFR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 100, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_problem_snps_afr_temp  <- rbind(haplo_data_problem_snps_afr_temp, haplo_bit)
+}
+
+for (i in 100:109){
+  print(i)
+  print(problem_snps[i])
+  i=109
+  haplo_bit <-  queryHaploreg(query = problem_snps[i], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "AFR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_problem_snps_afr_temp  <- rbind(haplo_data_problem_snps_afr_temp, haplo_bit)
+}
+
+write_tsv(haplo_data_problem_snps_afr_temp, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_afr_12.12.19.tsv")
+haplo_data_problem_snps_afr_temp <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_afr_12.12.19.tsv")
+
+
+
+####################
+
+haplo_data_problem_snps_eur_temp = data.frame()
+for (i in 10:20){
+  print((i*10):min(i*10+9, length(problem_snps)))
+  print(problem_snps[(i*10):min(i*10+9, length(problem_snps))])
+  haplo_bit <-  queryHaploreg(query = problem_snps[(i*10):min(i*10+9, length(problem_snps))], 
+                              file = NULL, study = NULL, ldThresh = 0.8, ldPop = "EUR", 
+                              epi = "acetyl", cons = "siphy", genetypes = "refseq", 
+                              url = "pubs.broadinstitute.org/mammals/haploreg/haploreg.php",
+                              timeout = 200, encoding = "UTF-8", verbose = FALSE)
+  haplo_data_problem_snps_eur_temp  <- rbind(haplo_data_problem_snps_eur_temp, haplo_bit)
+}
+
+write_tsv(haplo_data_problem_snps_eur_temp, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_eur_12.12.19.tsv")
+
+############
+
+
+haplo_data_problem_snps <- rbind(haplo_data_problem_snps_eur_temp, haplo_data_problem_snps_amr_temp, haplo_data_problem_snps_asn_temp, haplo_data_problem_snps_afr_temp)
+
+haplo_data_fixed_1 <- rbind(haplo_data, haplo_data_problem_snps)
+write_tsv(haplo_data_fixed_1, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowUpProblemSNPs/cancer_lib_haploreg_data_withmergedsnpids_causalqueryadded_12.12.19.tsv")
+
+haplo_data_problem_snps <- haplo_data_problem_snps %>% dplyr::filter(rsID %in% c(lib$Causal_SNP, lib$leadSNP, merge_conversion$Causal_SNP, merge_conversion$leadSNP))
+haplo_data_problem_snps <- dplyr::select(haplo_data_problem_snps, -r2, -`D'`)
+haplo_data_problem_snps[haplo_data_problem_snps == ""] <- NA
+haplo_data_problem_snps <- distinct(haplo_data_problem_snps)
+
+# flipped here - query snp id is causal
+haplo_problem_leads <- haplo_data_problem_snps %>% group_by(query_snp_rsid) %>% 
+  summarise(all_lead_snps = paste(unique(rsID[rsID %in% c(lib$leadSNP, merge_conversion$leadSNP)]), collapse=","))
+haplo_data_problem_snps <- dplyr::filter(haplo_data_problem_snps, rsID == query_snp_rsid)
+haplo_data_problem_leads_join = left_join(haplo_data_problem_snps, haplo_problem_leads, by=c("rsID" = "query_snp_rsid"))
+# fix the merged ids
+haplo_data_problem_leads_join <- haplo_data_problem_leads_join %>% rowwise() %>% mutate(rsID = ifelse(rsID %in% c(lib$Causal_SNP, lib$leadSNP),
+                                                  rsID,
+                                                  merged_ids$merged_name[merged_ids$old_name == rsID]),
+                                    query_snp_rsid = ifelse(query_snp_rsid %in% c(lib$Causal_SNP, lib$leadSNP),
+                                                  query_snp_rsid,
+                                                  merged_ids$merged_name[merged_ids$old_name == query_snp_rsid]))
+
+haplo_data_problem_leads_join <- dplyr::select(haplo_data_problem_leads_join, rsID, all_lead_snps, chr, pos_hg38, ref, alt, AFR, 
+                                         AMR, ASN, EUR, Motifs, eQTL, gwas, Promoter_histone_marks,
+                                         Enhancer_histone_marks,dbSNP_functional_annotation, 
+                                         grasp, DNAse)
+
+haplo_data_leadcombined_fix1 <- rbind(haplo_data_leadcombined, haplo_data_problem_leads_join)
+haplo_data_leadcombined_fix1 <- haplo_data_leadcombined_fix1 %>%
+  group_by(rsID, chr, pos_hg38, ref, alt, AFR, AMR, ASN, EUR, Motifs, eQTL, gwas, 
+           Promoter_histone_marks, Enhancer_histone_marks,dbSNP_functional_annotation, grasp, DNAse) %>% 
+  summarise(all_lead_snps = paste(unique(unlist(str_split(c(all_lead_snps), ","))), collapse=","))
+haplo_data_leadcombined_fix1 <- ungroup(haplo_data_leadcombined_fix1)
+
+  
+  
+  
+write_tsv(haplo_data_leadcombined, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowUpProblemSNPs/cancer_lib_haploreg_data_leadsnpscombined_mergedids_causalqueryadded_12.12.19.tsv")
+
+```
+
+Check if they have correct match now
+Duplicate snps in lib_haplolead are unnested lead snps or multiple alleles
+```{r}
+lib_haplolead <- left_join(lib_lead_unnest, dplyr::select(haplo_data_leadcombined_fix1, rsID, all_lead_snps), by=c("Causal_SNP" = "rsID")) %>% ungroup() %>%
+  rowwise() %>%
+  mutate(correct_lead = sum(grepl(leadSNP_unnest, all_lead_snps)))
+sum(lib_haplolead$correct_lead==0, na.rm=T)
+# 200 - didn't change much
+sum(unique(is.na(lib_haplolead$all_lead_snps)))
+# 1
+old_zeros = unique(lib_haplolead_old$Causal_SNP[lib_haplolead_old$correct_lead==0])
+# 204
+new_zeros = unique(lib_haplolead$Causal_SNP[lib_haplolead$correct_lead==0])
+# 139
+sum(new_zeros %in% old_zeros)
+# 139
+old_nas = unique(lib_haplolead_old$Causal_SNP[is.na(lib_haplolead_old$all_lead_snps)])
+# 156
+new_nas = unique(lib_haplolead$Causal_SNP[is.na(lib_haplolead$all_lead_snps) | lib_haplolead$all_lead_snps==""])
+# 91
+check_nas = lib_haplolead[is.na(lib_haplolead$all_lead_snps),]
+new_zeros = lib_haplolead[lib_haplolead$correct_lead==0,]
+
+```
+
+
+```{r}
+lib_haplolead_nest <- lib_haplolead %>% group_by(Causal_SNP) %>%
+  mutate(lead_annotation_problem = min(correct_lead)) %>% 
+  dplyr::select(-leadSNP_unnest, -correct_lead) %>% distinct()
+
+
+```
+
+Add cancer annotations
+```{r}
+lead_cancer <- lib %>% dplyr::select(leadSNP, Tissue) %>% distinct()
+lead_cancer <- lead_cancer %>% mutate(leadSNP = str_split(leadSNP, ","),
+                                      Disease = tolower(Tissue)) %>% 
+  dplyr::select(-Tissue) %>% unnest(leadSNP) %>% distinct()
+
+lib_disease_annot <- lib_haplolead_nest %>% rowwise() %>%
+  mutate(Disease = paste(unique(unlist(lapply(unlist(str_split(all_lead_snps, ",")), 
+                                 function(x) ifelse(x=="", "",
+                                   str_split(lead_cancer$Disease[grepl(x, lead_cancer$leadSNP)], ","))))), collapse=","))
+lib_disease_annot <- lib_disease_annot %>% rowwise() %>% mutate(tissue_match = grepl(Tissue, Disease))
+sum(apply(lib_disease_annot, 1, function(x) !grepl(x[["Tissue"]], x[["Disease"]])))
+
+lib_disease_annot <- dplyr::select(lib_disease_annot, -tissue_match)
+colnames(lib_disease_annot) <- c("snp_sequence", "Causal_SNP", "Ref", "Alt", "Chr_37", "Start_37", "Lead_SNP", "Disease_original",
+                                 "locus_name", "Cancer_eQTL", "expanded_lead_snps", "lead_annotation_problem", "Disease_expanded")
+write_tsv(lib_disease_annot, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowUpProblemSNPs/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv")
+
+
+```
+
+
+Still don't really know what the deal is with rs36068,rs1264325,rs1815,rs1816. Don't know how they got their lead snps in the original library, but not associated. But they're with the right disease - alternate lead snps for all of them linked to breast cancer
+
+
+
+
+
+
+
+Take the ones that still fail and use their unmerged ids. 
+```{r}
+merge_conversion <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/MergingSNPs/lib_snps_merged_rsid_conversion.tsv")
+# merge_problems <- merge_conversion$Causal_SNP[merge_conversion$causal_merged_rsID == ]
+
+
+```
+
+
+
+
+problem_snp_leads <- haplo_data_problem_snps %>% haplo_data <- haplo_data %>% 
+  dplyr::filter(rsID %in% c(lib$Causal_SNP, lib$leadSNP)) %>% 
+  dplyr::select( -r2, -`D'`) %>% distinct() %>% 
+  group_by(query_snp_rsid) %>% summarise(all_lead_snps = paste(unique(query_snp_rsid[query_snp_rsid %in% lib$leadSNP]), collapse=","))
+
+# add the entries to haplo_data 
+lib_haplolead_fix <- lib_haplolead %>% 
+  mutate(all_lead_snps = case_when(
+    is.na(all_lead_snps) & Causal_SNP %in% problem_snp_leads$query_snp_rsid ~ problem_snp_leads$all_lead_snps[problem_snp_leads$query_snp_rsid==Causal_SNP],
+    !is.na(all_lead_snps)
+    is.na(all_lead_snps) ~ 
+    T ~ all_lead_snps
+  ))
+
+group_by(rsID, chr, pos_hg38, ref, alt, AFR, AMR, ASN, EUR, Motifs, eQTL, gwas, Promoter_histone_marks,
+                                                   Enhancer_histone_marks,dbSNP_functional_annotation, 
+                                                   grasp, DNAse) %>% 
+  summarise(all_lead_snps = paste(unique(query_snp_rsid), collapse=","))
+```
+
+
+
+Questions:
+Why are some of the haploreg linkage relationships not symmetric?
+Which version of haploreg did yz use?
+Why are rs45509595,rs13199649 associated with rs71546598?
+
