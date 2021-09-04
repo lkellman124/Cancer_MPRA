@@ -114,20 +114,20 @@ Want to know:
 
 Combining haplotype data from different populations and filtering for SNPs in the cancer library.
 ```{r}
-haplo_data <- rbind(haplo_data_eur, haplo_data_amr, haplo_data_asn, haplo_data_afr)
-haplo_data <- haplo_data %>% dplyr::filter(rsID %in% lib$Causal_SNP)
+# haplo_data <- rbind(haplo_data_eur, haplo_data_amr, haplo_data_asn, haplo_data_afr)
+# haplo_data <- haplo_data %>% dplyr::filter(rsID %in% lib$Causal_SNP | rsID %in% lib$leadSNP)
 ```
 
 NOTE: many SNPs are well linked to multiple leadSNPs.
 
 Getting rid of the multiple lead snp/same causal snp entries
 ```{r}
-haplo_data <- dplyr::select(haplo_data, -query_snp_rsid, -r2, -`D'`, -is_query_snp)
-# haplo_data[is.na(haplo_data)] <- ""
-replacement_list <- as.list(rep("", length(colnames(haplo_data))))
-names(replacement_list) <- colnames(haplo_data)
-haplo_data <- replace_na(haplo_data, replacement_list)
-haplo_data <- distinct(haplo_data)
+# haplo_data <- dplyr::select(haplo_data, -query_snp_rsid, -r2, -`D'`, -is_query_snp)
+# # haplo_data[is.na(haplo_data)] <- ""
+# replacement_list <- as.list(rep("", length(colnames(haplo_data))))
+# names(replacement_list) <- colnames(haplo_data)
+# haplo_data <- replace_na(haplo_data, replacement_list)
+# haplo_data <- distinct(haplo_data)
 ```
 
 
@@ -148,11 +148,32 @@ haplo_data_test <- haplo_data %>% dplyr::filter(rsID %in% c(lib$Causal_SNP, lib$
 haplo_data <- dplyr::select(haplo_data, -r2, -`D'`)
 haplo_data <- distinct(haplo_data)
 write_tsv(haplo_data, here("output/cmpra_haploreg_data_withquery.tsv"))
+haplo_data <- read_tsv(here("output/cmpra_haploreg_data_withquery.tsv"))
 
 ```
 ```{r}
 # Checks
 # "rs1004570" %in% c(lib$Causal_SNP, lib$leadSNP) == FALSE
 # sum(!(lib$Causal_SNP %in% haplo_data$rsID)) < 300
+```
+```{r}
+snps_expanded <- dplyr::select(haplo_data, rsID, query_snp_rsid) %>% distinct() %>%
+  dplyr::filter(rsID %in% lib$Causal_SNP) 
+lead_diseases <- dplyr::select(lib, leadSNP, Tissue) %>% mutate(Tissue = tolower(Tissue))
+lead_diseases <- lead_diseases %>% mutate(leadSNP = str_split(leadSNP, ",")) %>%
+  unnest(leadSNP)
+lead_diseases <- lead_diseases %>% mutate(Tissue = str_split(Tissue, ",")) %>%
+  unnest(Tissue)
+snps_expanded <- left_join(snps_expanded,lead_diseases, by=c("query_snp_rsid" = "leadSNP"))
+snps_expanded <- snps_expanded %>% group_by(rsID) %>%
+  summarise(Lead_SNP_expanded = paste(sort(unique(query_snp_rsid)), collapse=","),
+            disease_expanded = paste(sort(unique(Tissue)), collapse=","))
+sum(snps_expanded$rsID %in% lib$Causal_SNP)
+
+
+lib_exp <- left_join(lib, snps_expanded, by=c("Causal_SNP" = "rsID"))
+
+
+write_tsv(lib_exp, here("output/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv"))
 ```
 
