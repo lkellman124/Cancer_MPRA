@@ -1,0 +1,156 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Read in the file with all snps, read in library
+```{r}
+asatac_all <- read_csv("~/Documents/MPRA/Cancer_MPRA_Scaleup/asATAC/vcf_df_all_atac_7.14.21.csv")
+res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_withhitannot_031021.tsv")
+```
+
+Filter asatac_all down to SNPs that are in the library
+```{r}
+asatac_all <- dplyr::filter(asatac_all, POS %in% res_merge$Start_37)
+```
+
+Split sample column into separate info by ":"
+Filter by DP >=10, one of AD >= 2, 
+GT = 0/1 for all already, so not filtering that
+FILTER only PASS or VSQR 99
+
+```{r}
+aa_all <- asatac_all %>% separate(sample, into = c("GT", "AD", "DP","GQ", "PL"),sep=":", remove=F)
+aa_all$DP <- as.numeric(aa_all$DP)
+aa_all_filt <- dplyr::filter(aa_all, DP > 9)
+aa_all_filt <- aa_all_filt %>% separate(AD, sep=",", into=c("AD1", "AD2"), remove=F)
+aa_all_filt$AD1 <- as.numeric(aa_all_filt$AD1)
+aa_all_filt$AD2 <- as.numeric(aa_all_filt$AD2)
+
+aa_all_filt <- dplyr::filter(aa_all_filt, AD1 > 1 | AD2 > 1)
+unique(aa_all_filt$FILTER)
+table(aa_all_filt$FILTER)
+aa_all_filt <- dplyr::filter(aa_all_filt, !(FILTER == "\\."))
+
+```
+
+Run binomial test on AD1 and AD2
+binom.test(x, p = 0.5, alternative = “two.sided”, conf.level = 0.95)
+FDR correct
+```{r}
+aa_all_filt <- aa_all_filt %>% rowwise() %>%
+  mutate(as_pval = binom.test(c(AD1, AD2), p=0.5, alternative = "two.sided", conf.level=0.95)$p.value)
+aa_all_filt <- aa_all_filt %>% ungroup() %>%
+  mutate(p_adj = p.adjust(as_pval, method="fdr" ))
+```
+Merge with library
+Filter for only the ones that met the quality filters and where a pvalue for allelic skew could be assessed
+```{r}
+# cut out excess columns
+asatac_cut <- dplyr::select(aa_all_filt, CHROM, POS, tissue, p_adj)
+# change chrom to match between both dfs
+asatac_cut <- asatac_cut %>% mutate(CHROM = str_remove(CHROM, "chr"))
+# cut out excess res columns
+res_cut <- dplyr::select(res_merge, Causal_SNP, Chr_37, Start_37, disease, hit_spec)
+# change chr_37 to a character
+res_cut$Chr_37 <- as.character(res_merge$Chr_37)
+# join res and asatac
+asatac_lib <- left_join(res_cut, asatac_cut, by=c("Chr_37"="CHROM", "Start_37" = "POS"))
+# filter for only those with a p value (the ones that met quality filters and could be assessed)
+as_lib_filt <- dplyr::filter(asatac_lib, !is.na(p_adj))
+# if any tissue for a SNP has adjusted p value less than 0.05, call it T
+as_lib_filt <- as_lib_filt %>% group_by(Causal_SNP) %>%
+  summarise(hit_spec = unique(hit_spec), 
+            asatac_hit = ifelse(sum(p_adj < 0.05) > 0, T, F))
+
+```
+Some stats
+```{r}
+# percent of total evaluatable SNPsthat are asatac
+sum(as_lib_filt$asatac_hit == T)/dim(as_lib_filt)[1]
+# 36.1%
+# Percent of hits that are asatac
+sum(as_lib_filt$asatac_hit & !is.na(as_lib_filt$hit_spec))/sum(!is.na(as_lib_filt$hit_spec))
+# 41.5%
+sum(!is.na(as_lib_filt$hit_spec))
+# 82
+```
+
+Run for HiChIP
+Read in file of all hichip called heterozygotes, filter for those in the library
+```{r}
+ashi_all <- read_csv("~/Documents/MPRA/Cancer_MPRA_Scaleup/asATAC/vcf_df_all_hichip.csv",
+                     col_types = paste(rep("c", 47), collapse=""))
+ashi_all <- dplyr::filter(ashi_all, POS %in% res_merge$Start_37 )
+# remove tissues I don't use
+ashi_all <- dplyr::filter(ashi_all, !tissue == "Bladder") %>%
+  dplyr::select(-Blad_B1, -Blad_B2)
+ashi_all <- dplyr::filter(ashi_all, !tissue %in% c("GDSD3", "GDSD6")) %>%
+  dplyr::select(-GDSD3_B1, -GDSD3_B2, -GDSD6_B1, -GDSD6_B2)
+```
+Quality filter
+```{r}
+# make it long
+ashi_long <- pivot_longer(ashi_all, cols = c("Air_B1", "Air_B3", "Astro_B1", "Astro_B2", "Colon_B1", "Colon_B2",
+                                             "Eso_B1", "Eso_B2", "GDSD0_B1", "GDSD0_B2", "GM12878_B1", "GM12878_B2", "HMEC0_B1",
+                                             "HMEC4_B2", "MC_B1", "MC_B2", "Ova_B1", "Ova_B2", "Panc_B2", "Panc_B3",
+                                             "Pros_B1", "Pros_B2", "Renal_B1", "Renal_B2", "Thy_B1", "Thy_B2", 
+                                             "Uter_B2", "Uter_B3"),
+                          names_to = "sample_name",
+                          values_to = "sample")
+# keep only those with data
+ashi_long <- dplyr::filter(ashi_long, !is.na(sample))
+# keep only relevant samples
+ashi_long <- dplyr::select(ashi_long, CHROM, POS,REF, ALT, FILTER, tissue, sample_name, FORMAT, sample)
+# separate samples into the different fields
+ashi_long <- ashi_long %>% separate( col = "sample", into = c("GT", "AD", "DP", "GQ","PL"), sep = ":", remove=F)
+# separate AD into the different counts
+ashi_long <- ashi_long %>% separate(col="AD", into=c("ref_ct", "alt_ct"), sep=",", remove=F)
+# Filter for DP >=10, allele counts >=2
+ashi_long$DP <- as.numeric(ashi_long$DP)
+ashi_long$ref_ct <- as.numeric(ashi_long$ref_ct)
+ashi_long$alt_ct <- as.numeric(ashi_long$alt_ct)
+
+ashi_long <- dplyr::filter(ashi_long, DP > 9)
+ashi_long <- dplyr::filter(ashi_long, ref_ct > 2 | alt_ct > 2)
+ashi_long <- dplyr::filter(ashi_long, FILTER == "PASS" | grepl("VQSR", FILTER))
+ashi_coll <- ashi_long %>% group_by(CHROM, POS, REF, ALT, tissue) %>%
+  summarise(ref_ct = sum(ref_ct), alt_ct = sum(alt_ct))
+```
+Run binomial test and fdr correct
+```{r}
+# run binomial test
+ashi_coll <- ashi_coll %>% rowwise() %>%
+  mutate(as_pval = binom.test(c(ref_ct, alt_ct), p=0.5, alternative = "two.sided", conf.level=0.95)$p.value)
+ashi_coll <- ashi_coll %>% ungroup() %>%
+  mutate(p_adj = p.adjust(as_pval, method="fdr" ))
+```
+
+Join to library
+```{r}
+ashi_cut <- dplyr::select(ashi_coll, CHROM, POS, tissue, p_adj)
+ashi_cut <- ashi_cut %>% mutate(CHROM = str_remove(CHROM, "chr"))
+ashi_cut$POS <- as.numeric(ashi_cut$POS)
+ashi_lib <- left_join(res_cut, ashi_cut, by=c("Chr_37"="CHROM", "Start_37" = "POS"))
+
+ashi_lib_filt <- dplyr::filter(ashi_lib, !is.na(p_adj))
+ashi_lib_filt <- ashi_lib_filt %>% group_by(Causal_SNP) %>%
+  summarise(hit_spec = unique(hit_spec), 
+            ashi_hit = ifelse(sum(p_adj < 0.05) > 0, T, F))
+```
+
+Calculate percentages
+```{r}
+# percent of total
+sum(ashi_lib_filt$ashi_hit == T)/dim(ashi_lib_filt)[1]
+# 31.9
+
+sum(ashi_lib_filt$ashi_hit & !is.na(ashi_lib_filt$hit_spec))/sum(!is.na(ashi_lib_filt$hit_spec))
+# 35.5%
+```
+
+

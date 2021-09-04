@@ -1,0 +1,89 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Read in file
+```{r}
+res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_withhitannot_031021.tsv")
+```
+
+Split, unnest and pivot egenes
+```{r}
+egenes <- res_merge %>% dplyr::select( disease, hit_spec, eqtlgen_egenes, gtex_egenes_spec,hichip_egene,
+                                       genes_within_10kb)
+egenes <- egenes %>% mutate(eqtlgen_egenes = str_split(eqtlgen_egenes, ",|;"),
+                            gtex_egenes_spec = str_split(gtex_egenes_spec, ",|;"),
+                            hichip_egene = str_split(hichip_egene, ",|;"),
+                            genes_within_10kb = str_split(genes_within_10kb, ",|;"),
+                            disease = str_split(disease, ",|;")) %>%
+  unnest(eqtlgen_egenes) %>%
+  unnest(gtex_egenes_spec) %>%
+  unnest(hichip_egene) %>%
+  unnest(genes_within_10kb) %>%
+  unnest(disease)
+
+
+egenes <- dplyr::filter(egenes, !is.na(hit_spec))
+egenes <- pivot_longer(egenes,cols=c(eqtlgen_egenes, gtex_egenes_spec,hichip_egene,genes_within_10kb), 
+                       names_to = "data_source", values_to = "egene")
+egenes <- dplyr::filter(egenes, !is.na(egene))
+egenes <- egenes %>% mutate(hit_spec = str_split(hit_spec, ",")) %>%
+  unnest(hit_spec)
+hit_egenes <- distinct(dplyr::select(egenes, egene, hit_spec))
+
+```
+
+
+Convert H terms to correct histone name
+```{r}
+hit_egenes <- hit_egenes %>% mutate(gene_convert = case_when(
+  egene == "H1-5" ~ "HIST1H1B",
+  egene == "H2AC13" ~ "HIST1H2AI",
+  egene == "H2AC14" ~ "HIST1H2AJ",
+  egene == "H2AC15" ~ "HIST1H2AK",
+  egene == "H2AC16" ~ "HIST1H2AL",
+  egene == "H2AC17" ~ "HIST1H2AM",
+  egene == "H2BC13" ~ "HIST1H2BL",
+  egene == "H2BC14" ~ "HIST1H2BM",
+  egene == "H2BC15" ~ "HIST1H2BN",
+  egene == "H2BC17" ~ "HIST1H2BO",
+  egene == "H3C10" ~ "HIST1H3H",
+  egene == "H3C11" ~ "HIST1H3I",
+  egene == "H3C12" ~ "HIST1H3J",
+  egene == "H4C12" ~ "HIST1H4K",
+  egene == "H4C13" ~ "HIST1H4L",
+  egene == "H3C12" ~ "HIST1H3J",
+  egene == "H2AC13" ~ "HIST1H2AG",
+  egene == "H2AC14" ~ "HIST1H2AJ",
+  egene == "H3C1" ~ "HIST1H3A",
+  egene == "H3C2" ~ "HIST1H3B",
+  egene == "H4C1" ~ "HIST1H4B",
+  egene == "H4C11" ~ "HIST1H4B",
+  egene == "H4C2" ~ "HIST1H4A",
+  egene == "H1-1" ~ "HIST1H1A",
+  egene == "H1-2" ~ "HIST1H1C",
+  T ~ egene))
+
+```
+
+Find only shared
+```{r}
+shared <- hit_egenes %>% group_by(gene_convert) %>%
+  summarize(num_disease = length(unique(hit_spec)))
+shared <- dplyr::filter(shared, num_disease > 1)
+```
+
+
+
+```{r}
+write(shared$gene_convert, "~/Documents/MPRA/Cancer_MPRA_Scaleup/MakingFigures/PathwayEnrichmentResults/shared_egenes_hconvert_list.txt")
+
+
+```
+
+

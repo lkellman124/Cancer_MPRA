@@ -1,0 +1,278 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(MPRAnalyze)
+library(BiocParallel)
+library(pheatmap)
+library(GGally)
+```
+
+
+Read in counts file
+```{r}
+lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/nextseq_counts_111920.tsv")
+```
+
+Separate oligo name into locus, allele, barcode
+```{r}
+lib <- lib %>% separate(oligo, into=c("oligo_type", "locus", "allele", "barcode"), 
+                        sep="_", remove=F) %>%
+  mutate(locus = paste(oligo_type, locus, sep="_")) %>%
+  dplyr::select(-oligo, -oligo_type)
+```
+
+
+```{r}
+lib_grp <- lib %>% group_by(locus, allele) %>% 
+  summarise(num_plasmid_nonzero = sum(plasmid_2 > 0 | plasmid_3 > 0))
+lib_grp_filt <- dplyr::filter(lib_grp, num_plasmid_nonzero < 3)
+lib_filt <- dplyr::filter(lib, !(locus %in% lib_grp_filt$locus))
+
+lib_filt_grp <- lib_filt %>% group_by(locus, allele) %>%
+  summarise_at(vars(-barcode),
+               function(x) sum(x > 3))
+apply(lib_filt_grp[3:52], 2, function(x) sum(x < 3))
+test <- apply(lib_filt_grp[3:52], 1, function(x) sum(x > 3))
+
+lib_unfilt_grp <- lib %>% group_by(locus, allele) %>%
+  summarise_at(vars(-barcode),
+               function(x) sum(x > 3))
+apply(lib_unfilt_grp[3:52], 2, function(x) sum(x < 3))
+apply(lib_filt_grp[3:52], 2, function(x) sum(x < 3))
+test_unfilt <- apply(lib_unfilt_grp[3:52], 1, function(x) sum(x > 3))
+table(test)
+table(test_unfilt)
+check_lib_filt_grp <- lib_filt_grp[test == 0,]
+check_lib <- dplyr::filter(lib, locus %in% check_lib_filt_grp$locus)
+```
+
+```{r}
+
+# take out scrambles and motifs, then add reformatted scrambles back in
+# filter out the non-snps
+lib_filt <- dplyr::filter(lib_filt, !grepl("JM|motif|scramble", lib_filt$locus))
+```
+
+Make DNA matrix for MPRAnalyze
+```{r}
+dna <- lib_filt %>% dplyr::select(locus, allele, barcode, plasmid_2, plasmid_3)%>%
+  pivot_longer(cols=c(plasmid_2, plasmid_3), names_to = "dna_batch", values_to = "count") %>%
+  mutate(dna_batch = ifelse(dna_batch == "plasmid_2", "rep1", "rep2")) %>% rowwise() %>%
+  mutate(batch.allele.bc = paste(dna_batch, allele, barcode, sep="-")) %>%
+  dplyr::select(-barcode, -allele, -dna_batch) %>%
+  spread(key= batch.allele.bc, value = count)
+future_rownames <- dna$locus
+dna <- dna %>% ungroup() %>% dplyr::select(-locus)
+dna[is.na(dna)] <- 0
+dna <- as.matrix(dna)
+rownames(dna) <- future_rownames
+
+```
+
+Make RNA matrix with all celltypes
+```{r}
+rna <- lib_filt %>% dplyr::select(-plasmid_2, -plasmid_3) %>%
+  pivot_longer(c(-allele, -locus, -barcode), names_to = "cell_type",
+                                                        values_to="count")
+rna <- rna %>% unite("cell_type", cell_type, barcode, sep="-") %>%
+  unite("cell_type", cell_type, allele, sep="-")
+rna <- rna %>% pivot_wider(names_from=cell_type, values_from = count)
+
+future_rownames <- rna$locus
+rna <- rna %>% ungroup() %>% dplyr::select(-locus)
+rna[is.na(rna)] <- 0
+rna <- as.matrix(rna)
+rownames(rna) <- future_rownames
+rna <- rna[order(as.character(rownames(rna))),]
+
+```
+
+Make DNA column annotations
+```{r}
+col_dna = data.frame(dna_batch = str_remove(colnames(dna), "-.*$"),
+                     condition = str_remove(str_remove(colnames(dna), "^rep[0-9]-"), "-.*$"),
+                      barcode = str_remove(colnames(dna), "^.*-"))
+rownames(col_dna) <- colnames(dna)
+col_dna$barcode_allelic <- interaction(col_dna$barcode, col_dna$condition)
+```
+
+I've been running MPRAnalyze separately for each cell type, made it easier to interpret, need to think more about what this means for multiple hypothesis correction
+- considering adding a filter for 3 or more barcodes represented in each cell type, would need to be in the for loop
+```{r}
+cells = unique(str_remove(colnames(rna), "_.*"))
+res = data.frame()
+loci = distinct(dplyr::select(lib_filt, locus))
+library(foreach)
+library(doParallel)
+numCores = 6
+# cells = cells[c(1:6)]
+registerDoParallel(numCores)  # use multicore, set to the number of our cores
+res1 <- foreach (cell=cells, .combine=cbind) %dopar% {
+  print(cell)
+  # dna and col_dna can stay the same
+  # rna needs to be filtered for only the cell related columns
+  # rna col annot needs to be made
+  rna_cell <- rna[,grepl(cell, colnames(rna))]
+  
+  col_rna = data.frame(condition = str_remove(colnames(rna_cell), "^.*-"), 
+                       batch = str_remove(str_remove(colnames(rna_cell), "^.*_"), "-.*$"),
+                       barcode = str_remove(str_remove(colnames(rna_cell), "-ref$|-alt$"), ".*-"))
+  rownames(col_rna) <- colnames(rna_cell)
+  col_rna$barcode_allelic <- interaction(col_rna$barcode, col_rna$condition)
+  obj <- MpraObject(dnaCounts =dna, rnaCounts =rna_cell, dnaAnnot = col_dna, 
+                    rnaAnnot = col_rna)
+  obj <- estimateDepthFactors(obj, lib.factor = "dna_batch", which.lib = "dna", 
+                            depth.estimator = "uq")
+  obj <- estimateDepthFactors(obj,which.lib = "rna", lib.factor= "batch",
+                            depth.estimator = "uq")
+  obj <- analyzeComparative(obj = obj, 
+                           dnaDesign = ~ barcode_allelic, 
+                           rnaDesign = ~ condition, 
+                           reducedDesign = ~ 1)
+# should I have batch in the rnaDesign? Try both:
+#   obj <- analyzeComparative(obj = obj, 
+#                           dnaDesign = ~ barcode_allelic, 
+#                           rnaDesign = ~ condition + batch, 
+#                           reducedDesign = ~ batch)
+  res_cell <- testLrt(obj) 
+  res_cell <- dplyr::select(res_cell, fdr, pval, logFC)
+  colnames(res_cell) <- paste(cell, colnames(res_cell), sep="_")
+  res_cell <- left_join(loci,rownames_to_column(res_cell, "locus"))
+  res_cell
+}
+
+res_locus <- res1$locus
+res1_write <- res1 %>% dplyr::select(-locus)
+res1_write$locus <- res_locus
+res1_write <- res1_write[c(49, 1:48)]
+write_tsv(res1_write, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/mpranalyze_plasmidrep_112720.tsv")
+sum(res1$hmec_fdr < 0.01)
+sum(res$hmec_fdr < 0.01, na.rm=T)
+length(intersect(res$locus[res$hmec_fdr < 0.01], res1$locus[res1$hmec_fdr < 0.01]))
+
+
+mpranalyze_plasmidrep_111920_airway_ast_colon_endo_eso_gm.tsv")
+write_tsv(res3_write, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/mpranalyze_plasmidrep_111920_panc_pros_renal_thy.tsv")
+write_tsv(res_cell, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/hmec_mpranalyze_plasmidrep_111920.tsv")
+```
+
+
+```{r}
+
+write_tsv(res_cell, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/hmec_mpranalyze_plasmidrep_111920.tsv")
+# write_tsv(res,"~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/mpranalyze_nextseq_11.13.20.tsv")
+
+dna_rep_qq <- res %>% 
+  dplyr::select(endo_pval) %>% 
+  mutate(theoretical_quantile = cume_dist(endo_pval))
+
+dna_rep_qq %>% 
+  ggplot(aes(x = -log10(theoretical_quantile), y = -log10(endo_pval))) +
+  geom_point(size = 1) +
+  geom_abline(slope = 1, intercept = 0, color = scales::brewer_pal(palette = "Set1")(1)[1]) +
+  labs(x = "-log10 theoretical p-value", y = "-log10 observed p-value",
+       title = "HMEC QQ-plot") +
+  cowplot::theme_cowplot() 
+
+hist(res$gm_pval, breaks=1000)
+hist(res$endo_pval, breaks=1000)
+
+
+```
+```{r}
+res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_with_eQTLGen_GTExreformat_11.1.20.tsv")
+res_merge <- left_join(res, res_merge[, -c(2:35)], by=c("locus" = "locus_name"))
+fdr_vars <- res_merge
+
+fdr_vars <- colnames(res_merge)[grepl("fdr", colnames(res_merge))]
+fc_vars <- colnames(res_merge)[grepl("logFC", colnames(res_merge))]
+res_merge <- res_merge %>% rowwise() %>% 
+  mutate_at(all_of(fdr_vars), function(x) ifelse(is.na(x), 1, x))%>%
+  mutate_at(all_of(fc_vars), function(x) ifelse(is.na(x), 0, x))
+fdr_cutoff = 0.05
+fc_cutoff = 0.25
+sum(res_merge$airway_fdr < fdr_cutoff & abs(res_merge$airway_logFC) > fc_cutoff &
+      grepl("lung", res_merge$Disease_original))
+# 57
+sum(res_merge$eso_fdr < fdr_cutoff & abs(res_merge$eso_logFC) > fc_cutoff &
+      grepl("eso", res_merge$Disease_original))
+# 2
+sum(res_merge$endo_fdr < fdr_cutoff & abs(res_merge$endo_logFC) > fc_cutoff &
+      grepl("endo", res_merge$Disease_original))
+# 18
+sum(res_merge$gm_fdr < fdr_cutoff & abs(res_merge$gm_logFC) > fc_cutoff &
+      grepl("lymphoma", res_merge$Disease_original))
+# 16
+
+```
+
+
+
+
+```{r}
+res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/eQTLgen/res_merge_with_eQTLGen_GTExreformat_11.1.20.tsv")
+res_merge <- left_join(dplyr::select(rownames_to_column(res_cell, "locus_name"),
+                                     locus_name, logFC, fdr), res_merge)
+res_merge <- res_merge %>% rowwise() %>% 
+  mutate(fdr = ifelse(is.na(fdr), 1, fdr), logFC = ifelse(is.na(logFC), 0, logFC))
+hmec_hits <- res_merge[test_merge$fdr < 0.05 & grepl("brca", test_merge$Disease_original),]
+hmec_hichip_hits <- hmec_hits[!is.na(hmec_hits$HiChIP_egene),]
+write_tsv(hmec_hichip_hits, "~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/hmec_res_merge_dnarep_111920.tsv")
+```
+
+
+
+
+```{r}
+test_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/DataAnalysis/Analysis_9.21.20/res_merged_9.21.20.tsv")
+test_merge <- left_join(rownames_to_column(res_cell, "locus_name"), test_merge)
+fdr_vars <- colnames(test_)[grepl("fdr", colnames(res_na))]
+fc_vars <- colnames(res_na)[grepl("logFC", colnames(res_na))]
+test_merge <- test_merge %>% rowwise() %>% 
+  mutate(fdr = ifelse(is.na(fdr), 1, fdr), logFC = ifelse(is.na(logFC), 0, logFC))
+sum(test_merge$fdr < 0.05 & abs(test_merge$logFC) > 0.5 & grepl("brca", test_merge$Disease_original))
+sum(test_merge$fdr < 0.05 & abs(test_merge$logFC) > 0.5)
+# 65
+sum(res_cell$fdr < 0.05 & abs(res_cell$logFC) > 0.5)
+sum(res_cell$fdr < 0.05)
+sum(test_merge$fdr < 0.05 & grepl("brca", test_merge$Disease_original))
+hmec_res <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Sequencingv3/NextSeq_Pool1/Temp_HMEC_Analysis/mpranalyze_hmecNextSeq_oldpGF.tsv")
+test_merge <- left_join(test_merge, hmec_res)
+sum(test_merge$hmec_fdr < 0.01 & abs(test_merge$hmec_logFC) > 0.5, na.rm=T)
+# 326
+sum(test_merge$hmec_fdr < 0.01 & abs(test_merge$hmec_logFC) > 0.5 & 
+      grepl("brca", test_merge$Disease_original), na.rm=T)
+# 101
+ggplot(test_merge, aes(x=logFC, y = -log10(fdr), col = grepl("brca", Disease_original))) + geom_point()
+
+```
+
+
+
+
+
+
+```{r}
+hmec_hits_new <- test_merge[test_merge$fdr < 0.05 & abs(test_merge$logFC) > 0.5 & grepl("brca", test_merge$Disease_original),]
+
+```
+
+
+
+```{r}
+res_na <- res
+fdr_vars <- colnames(res_na)[grepl("fdr", colnames(res_na))]
+fc_vars <- colnames(res_na)[grepl("logFC", colnames(res_na))]
+res_na <- res_na %>% rowwise() %>% 
+  mutate_at(vars(fdr_vars), function(x) ifelse(is.na(x), 1, x)) %>%
+  mutate_at(vars(fc_vars), function(x) ifelse(is.na(x), 0, x))
+
+
+```
+

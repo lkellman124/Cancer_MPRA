@@ -1,0 +1,250 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(MPRAnalyze)
+library(BiocParallel)
+library(pheatmap)
+library(GGally)
+```
+
+
+Read in counts file
+```{r}
+lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/nextseq_counts_111920.tsv")
+
+```
+
+Separate oligo name into locus, allele, barcode
+```{r}
+lib <- lib %>% separate(oligo, into=c("oligo_type", "locus", "allele", "barcode"), 
+                        sep="_", remove=F) %>%
+  mutate(locus = paste(oligo_type, locus, sep="_")) %>%
+  dplyr::select(-oligo, -oligo_type)
+```
+
+For quantitative analysis, keep scrambles and motifs
+Don't split on alleles
+
+Make DNA matrix for MPRAnalyze
+```{r}
+lib <- lib %>% unite(locus, locus, allele)
+
+dna <- lib %>% dplyr::select(locus, barcode, plasmid_2, plasmid_3)%>%
+  pivot_longer(cols=c(plasmid_2, plasmid_3), names_to = "dna_batch", values_to = "count") %>%
+  mutate(dna_batch = ifelse(dna_batch == "plasmid_2", "rep1", "rep2")) %>% rowwise() %>%
+  mutate(batch.bc = paste(dna_batch, barcode, sep="-")) %>%
+  dplyr::select(-barcode, -dna_batch) %>%
+  spread(key= batch.bc, value = count)
+future_rownames <- dna$locus
+dna <- dna %>% ungroup() %>% dplyr::select(-locus)
+dna[is.na(dna)] <- 0
+dna <- as.matrix(dna)
+rownames(dna) <- future_rownames
+
+```
+
+Make RNA matrix with all celltypes
+```{r}
+rna <- lib %>% dplyr::select(-plasmid_2, -plasmid_3) %>%
+  pivot_longer(c(-locus, -barcode), names_to = "cell_type",
+                                                        values_to="count")
+rna <- rna %>% unite("cell_type", cell_type, barcode, sep="-")
+rna <- rna %>% pivot_wider(names_from=cell_type, values_from = count)
+
+future_rownames <- rna$locus
+rna <- rna %>% ungroup() %>% dplyr::select(-locus)
+rna[is.na(rna)] <- 0
+rna <- as.matrix(rna)
+rownames(rna) <- future_rownames
+rna <- rna[order(as.character(rownames(rna))),]
+
+```
+
+Make DNA column annotations
+```{r}
+col_dna = data.frame(dna_batch = str_remove(colnames(dna), "-.*$"),
+                      barcode = str_remove(colnames(dna), "^.*-"))
+rownames(col_dna) <- colnames(dna)
+```
+
+I've been running MPRAnalyze separately for each cell type, made it easier to interpret, need to think more about what this means for multiple hypothesis correction
+- considering adding a filter for 3 or more barcodes represented in each cell type, would need to be in the for loop
+```{r}
+cells = unique(str_remove(colnames(rna), "_.*"))
+res = data.frame()
+loci = distinct(dplyr::select(lib, locus))
+
+  # dna and col_dna can stay the same
+  # rna needs to be filtered for only the cell related columns
+  # rna col annot needs to be made
+  rna_cell <- rna
+
+  control_snps <- grep("scr", rownames(rna_cell))
+  col_rna = data.frame(condition = str_remove(colnames(rna_cell), "_.*"),
+    batch = str_remove(str_remove(colnames(rna_cell), "^.*_"), "-.*$"),
+                       barcode = str_remove(str_remove(colnames(rna_cell), "-ref$|-alt$"), ".*-"))
+  rownames(col_rna) <- colnames(rna_cell)
+  obj <- MpraObject(dnaCounts =dna, rnaCounts =rna_cell, dnaAnnot = col_dna, 
+                    rnaAnnot = col_rna, controls = control_snps)
+  obj <- estimateDepthFactors(obj, lib.factor = "dna_batch", which.lib = "dna", 
+                            depth.estimator = "uq")
+  obj <- estimateDepthFactors(obj,which.lib = "rna", lib.factor= c("batch","condition"),
+                            depth.estimator = "uq")
+  
+  obj <- analyzeQuantification(obj = obj, 
+                           dnaDesign = ~ barcode, 
+                           rnaDesign = ~ condition)
+  
+  alpha <- getAlpha(obj, by.factor = "condition")
+
+  # airway
+  res_airway <- testEmpirical(obj = obj, 
+                               statistic = alpha$airway)
+  res_airway$locus <- rownames(alpha)
+  write_tsv(res_airway, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_airway.tsv")
+# ast
+  res_ast <- testEmpirical(obj = obj, 
+                               statistic = alpha$ast)
+  res_ast$locus <- rownames(alpha)
+  write_tsv(res_ast, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_ast.tsv")
+  # colon
+res_colon <- testEmpirical(obj = obj, 
+                               statistic = alpha$colon)
+  res_colon$locus <- rownames(alpha)
+  write_tsv(res_colon, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_colon.tsv")
+# endo
+  res_endo <- testEmpirical(obj = obj, 
+                               statistic = alpha$endo)
+  res_endo$locus <- rownames(alpha)
+  write_tsv(res_endo, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_endo.tsv")
+# eso
+  res_eso <- testEmpirical(obj = obj, 
+                               statistic = alpha$eso)
+  res_eso$locus <- rownames(alpha)
+  write_tsv(res_eso, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_eso.tsv")
+# gm
+  res_gm <- testEmpirical(obj = obj, 
+                               statistic = alpha$gm)
+  res_gm$locus <- rownames(alpha)
+  write_tsv(res_gm, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_gm.tsv")
+# h9
+  res_h9 <- testEmpirical(obj = obj, 
+                               statistic = alpha$h9)
+  res_h9$locus <- rownames(alpha)
+  write_tsv(res_h9, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_h9.tsv")
+# hmec
+  res_hmec <- testEmpirical(obj = obj, 
+                               statistic = alpha$hmec)
+  res_hmec$locus <- rownames(alpha)
+  write_tsv(res_hmec, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_hmec.tsv")
+# kc
+  res_kc <- testEmpirical(obj = obj, 
+                               statistic = alpha$kc)
+  res_kc$locus <- rownames(alpha)
+  write_tsv(res_kc, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_kc.tsv")
+# lx
+  res_lx <- testEmpirical(obj = obj, 
+                               statistic = alpha$lx)
+  res_lx$locus <- rownames(alpha)
+  write_tsv(res_lx, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_lx.tsv")
+# mc
+  res_mc <- testEmpirical(obj = obj, 
+                               statistic = alpha$mc)
+  res_mc$locus <- rownames(alpha)
+  write_tsv(res_mc, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_mc.tsv")
+# ov
+  res_ov <- testEmpirical(obj = obj, 
+                               statistic = alpha$ov)
+  res_ov$locus <- rownames(alpha)
+  write_tsv(res_ov, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_ov.tsv")
+# panc
+  res_panc <- testEmpirical(obj = obj, 
+                               statistic = alpha$panc)
+  res_panc$locus <- rownames(alpha)
+  write_tsv(res_panc, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_panc.tsv")
+# pros
+  res_pros <- testEmpirical(obj = obj, 
+                               statistic = alpha$pros)
+  res_pros$locus <- rownames(alpha)
+  write_tsv(res_pros, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_pros.tsv")
+# renal
+  res_renal <- testEmpirical(obj = obj, 
+                               statistic = alpha$renal)
+  res_renal$locus <- rownames(alpha)
+  write_tsv(res_renal, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_renal.tsv")
+# thy
+  res_thy <- testEmpirical(obj = obj, 
+                               statistic = alpha$thy)
+  res_thy$locus <- rownames(alpha)
+  write_tsv(res_thy, "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/testempirical_results_2.18.21/res_thy.tsv")
+
+  
+  
+
+  
+ #  write_tsv(rownames_to_column(alpha), "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/alpha_results_1.28.21.tsv")
+#   alpha <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/alpha_results_1.28.21.tsv")
+  boxplot(alpha)
+  
+  res.hmec <- testEmpirical(obj = obj, 
+                               statistic = alpha$hmec)
+res.hmec$locus <- rownames(rna_cell)
+ pheatmap(alpha, scale = "column")
+ res.hmec$control <- F
+res.hmec[control_snps, "control"] <- T
+
+```
+
+
+
+```{r}
+cutoff = 1*10^-5
+keep <- unique(c(res_airway$locus[res_airway$pval.mad < cutoff],
+          res_ast$locus[res_ast$pval.mad < cutoff],
+          res_colon$locus[res_colon$pval.mad < cutoff],
+          res_endo$locus[res_endo$pval.mad < cutoff],
+          res_eso$locus[res_eso$pval.mad < cutoff],
+          res_gm$locus[res_gm$pval.mad < cutoff],
+          res_h9$locus[res_h9$pval.mad < cutoff],
+          res_hmec$locus[res_hmec$pval.mad < cutoff],
+          res_kc$locus[res_kc$pval.mad < cutoff],
+          res_lx$locus[res_lx$pval.mad < cutoff],
+          res_mc$locus[res_mc$pval.mad < cutoff],
+          res_ov$locus[res_ov$pval.mad < cutoff],
+          res_panc$locus[res_panc$pval.mad < cutoff],
+          res_pros$locus[res_pros$pval.mad < cutoff],
+          res_renal$locus[res_renal$pval.mad < cutoff],
+          res_thy$locus[res_thy$pval.mad < cutoff]))
+alpha_filt <- alpha[rownames(alpha) %in% keep & !(grepl("motif|scramble|JM", rownames(alpha))),]
+alpha_filt[is.na(alpha_filt)] <- 0
+alpha_sds <- apply(alpha_filt, 1, sd)
+alpha_filt <- alpha_filt[alpha_sds > quantile(alpha_sds, seq(0, 1, 0.1), na.rm=T)[10],]
+quantile(alpha_sds, na.rm=T)
+pheatmap(log10(alpha_filt+1))
+alpha_filt <- alpha_filt[]
+```
+
+```{r fig.width = 1.5, fig.height = 4}
+motifs <- alpha[grepl("motif", rownames(alpha)),]
+motifs <- motifs[!(grepl("JM", rownames(motifs))),]
+# motifs_filt <- motifs[rownames(motifs) %in% keep,]
+motifs_sds <- apply(motifs, 1, sd)
+quantile(motifs_sds, seq(0,1, 0.1), na.rm=T)
+motifs_filt <- motifs[motifs_sds > quantile(motifs_sds, na.rm=T)[4] & !is.na(motifs_sds),]
+rownames(motifs_filt) <- str_remove(str_remove(rownames(motifs_filt), "^motif_"), "_motif")
+
+pheatmap(log2(motifs_filt+1), fontsize_row = 3, main = "MPRA transcription levels of motifs in library")
+
+
+```
+
+
+
+
+

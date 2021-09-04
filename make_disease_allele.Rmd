@@ -1,0 +1,185 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+```
+
+In HaploReg_FindingSNPs.Rmd, went through haploreg, took out our snps.
+
+```{r}
+haplo_data <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/cmpra_haploreg_data_withquery.tsv")
+
+```
+
+WHAT I WANT TO DO NOW:
+Ensure that I'm really dealing with the risk allele
+Check gwas studies
+Check gwas risks
+```{r}
+lib_gwas <- read.table("~/Documents/MPRA/Cancer_MPRA/YZ_Cancer_eQTL_TCGA/cancer/all-causal-SNP-16cancers.txt",
+                       sep="\t", header=T, stringsAsFactors = F)
+```
+
+```{r}
+studies <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/gwas_catalog_v1.0.2-studies_r2019-10-14.tsv")
+studies <- dplyr::filter(studies, PUBMEDID %in% lib_gwas$PUBMEDID)
+study_titles <- dplyr::select(studies, STUDY)
+study_titles <- distinct(study_titles)
+
+symptoms_or_response <- paste(c("adiation","oxicit","herapy", "bevacizumab",
+                                "Event-Free", "urvival","outcome", "latinum", "Response", "prognosis",
+                                "Docetaxel", "Body mass index change", "aromatase", "recurrence"),
+                                      collapse="|")
+study_titles$symptoms_or_response <- grepl(symptoms_or_response, study_titles$STUDY)
+
+interaction <- paste(c("nteraction", "oestrogen plus progestogen", "aspirin", "estrone", "uveal", "mucinous",
+                       "modification of penetrance", "lcohol", "moking", "low TSH levels", "male breast cancer"), collapse="|")
+                    
+study_titles$interaction <- grepl(interaction, study_titles$STUDY)
+
+subtype <- paste(c("marginal zone", "HER2", "ubtype", "estrogen-receptor-negative", "EGFR-mutated", "Barrett",
+                   "follicular", "postmenopausal", "estrogen receptor-positive"),
+                  collapse="|")
+study_titles$subtype <- grepl(subtype, study_titles$STUDY)
+
+study_filt <- study_titles %>% dplyr::filter(!(symptoms_or_response | interaction))
+
+
+studies <- studies %>% mutate(TYPE = case_when(
+  
+  
+))
+```
+
+I think for the most part, gwas is the risk allele if it's an OR. If beta, check if the other column says increase or decrease. 
+```{r}
+gwas_cat <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/gwas_catalog_v1.0-associations_e96_r2019-10-14.tsv")
+sum(gwas_cat$`OR or BETA` < 1 & grepl("unit|decrease|increase", gwas_cat$`95% CI (TEXT)`), na.rm=T)
+80403
+sum(gwas_cat$`OR or BETA` < 1, na.rm=T)
+88699
+
+whats_up <- gwas_cat[gwas_cat$`OR or BETA` < 1 & !(grepl("unit|decrease|increase", gwas_cat$`95% CI (TEXT)`)),]
+whats_up <- dplyr::filter(whats_up, !is.na(whats_up$`STRONGEST SNP-RISK ALLELE`))
+```
+
+```{r}
+lib_snps <- unique(c(lib_gwas$LeadSNP, lib_gwas$CausalSNP))
+gwas_lib_cat <- dplyr::filter(gwas_cat, SNPS %in% lib_gwas$LeadSNP)
+gwas_lib_cat <- dplyr::select(gwas_lib_cat, STUDY, `DISEASE/TRAIT`, `REGION`,`CHR_ID`,`CHR_POS`,
+                              `STRONGEST SNP-RISK ALLELE`, `SNPS`, `MERGED`,`SNP_ID_CURRENT`,
+                              `P-VALUE`, `OR or BETA`, `95% CI (TEXT)`)
+colnames(gwas_lib_cat) <- c("STUDY", "DISEASE", "REGION", "CHR", "POS", "STRONGEST_SNP_ALLELE", "SNP", 
+                            "MERGED", "SNP_ID_CURRENT", "PVAL",  "OR_BETA", "BETA_ANNOT")
+
+gwas_lib_cat <- gwas_lib_cat %>% mutate(or_or_beta = ifelse(grepl("unit|increase|decrease", BETA_ANNOT), "beta", "OR"))
+leftovers <- unique(gwas_lib_cat$SNP[!grepl("ymphoma|cancer|eukemia|denocarcinoma|arcinoma|elanoma|lioblastoma|adenoma|lioma|myeloma|Cancer", gwas_lib_cat$DISEASE)])
+leftovers <- gwas_lib_cat[!grepl("ymphoma|cancer|eukemia|adenocarcinoma|carcinoma|elanoma|lioblastoma|adenoma|lioma|myeloma|Cancer", gwas_lib_cat$DISEASE),]
+gwas_lib_filt <- dplyr::filter(gwas_lib_cat,
+                              grepl("ymphoma|cancer|eukemia|denocarcinoma|arcinoma|elanoma|lioblastoma|adenoma|lioma|myeloma|Cancer",
+                                    DISEASE))
+```
+
+
+
+```{r}
+
+gwas_lib_filt <- gwas_lib_filt %>% rowwise() %>%
+  mutate(odds_r = ifelse(or_or_beta == "OR", OR_BETA,
+                         ifelse(grepl("increase", BETA_ANNOT), exp(OR_BETA),
+                                ifelse(grepl("decrease", BETA_ANNOT), exp(-OR_BETA)))))
+           
+gwas_lib_filt <- gwas_lib_filt %>% mutate(Risk_Allele = str_remove(STRONGEST_SNP_ALLELE, "^.*-"))       
+gwas_lib_filt <- gwas_lib_filt %>% mutate(Risk_Allele = ifelse(Risk_Allele == "?", NA, Risk_Allele))     
+gwas_lib_filt <- gwas_lib_filt %>% mutate(up = odds_r > 1)
+```
+
+```{r}
+gwas_allele_coding <- gwas_lib_filt %>% ungroup() %>% group_by(SNP, Risk_Allele) %>%
+  summarise(up = sum(up)/length(up), odds_r = median(odds_r))
+gwas_allele_coding <- dplyr::filter(gwas_allele_coding, !is.na(Risk_Allele))
+```
+
+```{r}
+haplo_gwas <- full_join(haplo_data, gwas_allele_coding, by=c("query_snp_rsid"="SNP"))
+haplo_gwas_allsnps <- full_join(haplo_data, gwas_allele_coding, by=c("rsID"="SNP"))
+
+```
+
+```{r}
+haplo_explore <- haplo_gwas %>% dplyr::filter(rsID == query_snp_rsid)
+haplo_explore_sum <- haplo_explore %>% group_by(rsID) %>%
+  summarise(alt_risk = sum(alt == Risk_Allele), ref_risk = sum(ref==Risk_Allele),
+            neither = sum(!(alt==Risk_Allele | ref == Risk_Allele)))
+```
+
+
+There's a lot that could be happening here. 
+- HaploReg and GWAS entry could be referring to different strands
+- GWAS could refer to an allele not in haplo reg
+- Are my oligos even the right SNP if the strandedness is a problem???
+
+Some answers:
+The reference allele in our library refers to the haploreg reference, and that is always the plus strand.
+* The alt I still need to check
+Strandedness doesn't seem to matter much for enhancer activity.
+
+Now:
+Take the haploreg data for only the lead snps, and the GWAS data, and see for how many I can assign a "risk" allele
+```{r}
+hap_lead <- haplo_gwas_allsnps %>% 
+  dplyr::select(chr, pos_hg38, rsID, ref, alt, Risk_Allele, up) %>% distinct() %>%
+  dplyr::filter(rsID %in% lib$leadSNP)
+```
+
+For each SNP, figure out whether the reference haplotype links to more or less cancer
+```{r}
+rc <- function(x) {
+  return(case_when(
+    x=="A" ~ "T",
+    x=="T" ~ "A",
+    x=="G" ~ "C",
+    x=="C" ~ "G"))
+}
+hap_lead_risk <- hap_lead %>% mutate(alt = str_split(alt, ",")) %>%
+  mutate(hap_risk = case_when(
+    # when gwas didn't put an or or an allele
+    is.na(Risk_Allele) ~ "no_allele",
+    is.na(up) ~ "no_dir",
+    # the easy ones
+    alt == Risk_Allele & up == 1 ~ 'alt',
+    alt == Risk_Allele & up == 0 ~ 'ref',
+    ref == Risk_Allele & up == 1 ~ 'ref',
+    ref == Risk_Allele & up == 0 ~ 'alt',
+    # when I think gwas has flipped the strand
+    rc(Risk_Allele) == alt & up == 1 ~ "alt, flip",
+    rc(Risk_Allele) == alt & up == 0 ~ "ref, flip",
+    rc(Risk_Allele) == ref & up == 1 ~ "ref, flip",
+    rc(Risk_Allele) == ref & up == 0 ~ "alt, flip",
+    # for multi alleles
+    (Risk_Allele %in% alt) & up == 1 ~ "alt, multi",
+    (Risk_Allele %in% alt) & up == 0 ~ "ref, multi"
+ ))
+
+hap_lead_risk <- hap_lead_risk %>% mutate(alt = paste(alt, sep=","))
+```
+
+Write out
+
+```{r}
+write.table(hap_lead_risk,"~/Documents/MPRA/Cancer_MPRA/HaploReg/haploreg_with_gwas_risk_for_lead_snps.tsv",
+            sep="\t")
+
+```
+
+
+
+
+
+
+

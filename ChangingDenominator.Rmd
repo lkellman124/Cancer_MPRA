@@ -1,0 +1,204 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+fisher_tables <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/TCGA_ATAC_Enrichment/fisher_tables.txt")
+res_merge <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/Analysis11.12.20/Analysis11.27.20/res_merge_withhitannot_031021.tsv")
+```
+
+```{r}
+overlap_names <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/TCGA_ATAC_Enrichment/names_of_overlaps.txt")
+```
+
+```{r}
+filenames = list.files("~/Documents/MPRA/Cancer_MPRA_Scaleup/TCGA_ATAC_Enrichment/intersect_nonhits/",
+                       full=T)
+filenames_hits = list.files("~/Documents/MPRA/Cancer_MPRA_Scaleup/TCGA_ATAC_Enrichment/intersect_hits/",
+                       full=T)
+pvals <- data.frame()
+estimates <- data.frame()
+for (i in 1:length(filenames)){
+  print(i)
+  file = filenames[i]
+  print(file)
+  df <- read_tsv(file, col_names= c("chr_atac", "start_atac", "end_atac", "name_atac",
+                                   "chr_snp", "start_snp", "end_snp", "snp"))
+  cell = str_remove(str_remove(file, ".*//"), "_.*")
+  print("nonhit cell and cancer")
+  print(cell)
+  cancer = str_remove(str_remove(file, ".*_"), "\\.bed")
+  print(cancer)
+  cell_spec_list <- res_merge$Causal_SNP[grepl(cell, res_merge$disease)]
+  # non mpra hits that are in an overlap peak
+  nonhits_in <- sum(cell_spec_list %in% df$snp)
+  # non mpra hits that aren't in an overlap peak
+  nonhits_out <- sum(!(cell_spec_list %in% df$snp))
+  file_hits = filenames_hits[i]
+  print(file_hits)
+  df_hits <- read_tsv(file_hits, col_names= c("chr_atac", "start_atac", "end_atac", "name_atac",
+                                   "chr_snp", "start_snp", "end_snp", "snp"))
+  cell_hit = str_remove(str_remove(file_hits, ".*//"), "_.*")
+  cancer_hit = str_remove(str_remove(file, ".*_"), "\\.bed")
+  print("hit cell and cancer")
+  print(cell)
+  print(cancer)
+  # take only the ones that are mpra hits
+  cell_spec_hit_list <-  res_merge$Causal_SNP[grepl(cell, res_merge$hit_spec)]
+  # number of mpra hits in atac overlap peaks
+  hits_in <- sum(cell_spec_hit_list %in% df_hits$snp)
+  # number of mpra hits not in atac overlap peaks
+  hits_out <- sum(!(cell_spec_hit_list %in% df_hits$snp))
+  # fisher test for enrichment
+  fisher_table <- data.frame(in_atac = c(hits_in, nonhits_in),
+                             out_atac = c(hits_out, nonhits_out))
+  fisher_table
+  fisher <- fisher.test(fisher_table, alternative = "greater")
+  p <- fisher$p.value
+  est <- fisher$estimate
+  pvals[cell, cancer] <- p
+  estimates[cell, cancer] <- est
+}
+```
+
+FDR correct pvals
+```{r}
+pvals_mh <- pvals %>% 
+     as.matrix() %>% 
+     as.vector() %>% 
+     p.adjust(method='BH') %>% 
+     matrix(ncol=24)
+colnames(pvals_mh) <- colnames(pvals)
+rownames(pvals_mh) <- rownames(pvals)
+```
+
+
+```{r}
+pheatmap(-log10(pvals))
+pheatmap(-log10(pvals_mh))
+
+paletteLength <- 200
+library(RColorBrewer)
+myColor <- colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdYlBu")))(paletteLength)
+
+myBreaks <- c(seq(min(estimates), 0.999, length.out=ceiling(paletteLength/2) + 1), 
+              seq(1, max(estimates, na.rm=T), length.out=floor(paletteLength/2)))
+
+
+
+pheatmap(estimates, color=myColor, breaks=myBreaks)
+
+```
+Prune and reorder based on cancer type
+```{r}
+estimates_cut <- dplyr::select(estimates, BRCA, LGG, COAD, ESCA,
+                               GBM, KIRC, KIRP, LUAD, LUSC,
+                               PRAD, SKCM, THCA, UCEC)
+estimates_cut <- estimates_cut[c("hmec", "ast", "colon", "eso", "renal", "airway",
+                    "pros", "mc", "kc", "thy", "endo"), 
+                    c("BRCA", "LGG", "GBM", "COAD", "ESCA","KIRC", "KIRP",
+                    "LUAD", "LUSC", "PRAD", "SKCM", "THCA", "UCEC")]
+
+pvals_cut <- dplyr::select(as.data.frame(pvals_mh), BRCA, LGG, COAD, ESCA,
+                               GBM, KIRC, KIRP, LUAD, LUSC,
+                               PRAD, SKCM, THCA, UCEC)
+pvals_cut <- pvals_cut[c("hmec", "ast", "colon", "eso", "renal", "airway",
+                    "pros", "mc", "kc", "thy", "endo"), 
+                    c("BRCA", "LGG", "GBM", "COAD", "ESCA","KIRC", "KIRP",
+                    "LUAD", "LUSC", "PRAD", "SKCM", "THCA", "UCEC")]
+paletteLength <- 200
+myColor <- colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdYlBu")))(paletteLength)
+
+myBreaks <- c(seq(min(estimates_cut), 0.999, length.out=ceiling(paletteLength/2) + 1), 
+              seq(1, max(estimates_cut, na.rm=T), length.out=floor(paletteLength/2)))
+
+
+pheatmap(estimates_cut, cluster_rows=F, cluster_cols=F,
+         color=myColor, breaks=myBreaks)
+
+myBreaks <- c(seq(min(-log10(pvals_cut)), 0.999, length.out=ceiling(paletteLength/2) + 1), 
+              seq(1, max(-log10(pvals_cut), na.rm=T), length.out=floor(paletteLength/2)))
+
+pheatmap(-log10(pvals_cut), cluster_rows=F, cluster_cols=F,,
+         color=myColor, breaks=myBreaks)
+sum(pvals_mh < 0.1)
+```
+
+```{r}
+estimates_cut <- dplyr::select(estimates, BRCA, LGG, COAD, ESCA,
+                               GBM, KIRC, KIRP, LUAD, LUSC,
+                               PRAD, SKCM, THCA, UCEC)
+estimates_cut <- estimates_cut[c("hmec", "ast", "colon", "eso", "renal", "airway",
+                    "pros", "mc", "kc", "thy", "endo"), 
+                    c("BRCA", "GBM", "COAD", "ESCA","KIRC", "KIRP",
+                    "LUAD", "LUSC", "PRAD", "SKCM", "THCA", "UCEC")]
+
+pvals_cut <- dplyr::select(as.data.frame(pvals_mh), BRCA, LGG, COAD, ESCA,
+                               GBM, KIRC, KIRP, LUAD, LUSC,
+                               PRAD, SKCM, THCA, UCEC)
+pvals_cut <- pvals_cut[c("hmec", "ast", "colon", "eso", "renal", "airway",
+                    "pros", "mc", "kc", "thy", "endo"), 
+                    c("BRCA", "GBM", "COAD", "ESCA","KIRC", "KIRP",
+                    "LUAD", "LUSC", "PRAD", "SKCM", "THCA", "UCEC")]
+sum(pvals_cut < 0.1)
+paletteLength <- 200
+myColor <- colorRampPalette(rev(brewer.pal(n = 7, name =
+  "RdBu")))(paletteLength)
+
+myBreaks <- c(seq(min(estimates_cut), 0.999, length.out=ceiling(paletteLength/2) + 1), 
+              seq(1, max(estimates_cut, na.rm=T), length.out=floor(paletteLength/2)))
+
+rownames(estimates_cut) <- sapply(rownames(estimates_cut), function(x)
+  case_when(
+    x == "hmec" ~ "HMEC",
+    x == "ast" ~ "Astrocyte",
+    x == "colon" ~ "Colon",
+    x == "eso" ~ "Esophageal",
+    x == "renal" ~ "Renal",
+    x == "airway" ~ "Airway",
+    x == "mc" ~ "Melanocyte",
+    x == "pros" ~ "Prostate",
+    x == "kc" ~ "Keratinocyte",
+    x == "thy" ~ "Thyroid",
+    x == "endo" ~ "Endometrial"
+  ))
+
+
+
+
+pheatmap(estimates_cut, cluster_rows=F, cluster_cols=F,
+         color=myColor, breaks=myBreaks,
+       filename="~/Documents/MPRA/Cancer_MPRA_Scaleup/TCGA_ATAC_Enrichment/changed_denominator_heatmap_renamed.pdf",
+       width=7, height=3)
+
+myBreaks <- c(seq(min(-log10(pvals_cut)), 0.999, length.out=ceiling(paletteLength/2) + 1), 
+              seq(1, max(-log10(pvals_cut), na.rm=T), length.out=floor(paletteLength/2)))
+
+pheatmap(-log10(pvals_cut), cluster_rows=F, cluster_cols=F,
+         color=myColor, breaks=myBreaks)
+sum(pvals_mh < 0.1)
+```
+
+
+
+
+
+```{r}
+pvals_mh_cut <- dplyr::select(data.frame(pvals_mh), BRCA, LGG, COAD, ESCA,
+                               GBM, KIRC, KIRP, LUAD, LUSC,
+                               PRAD, SKCM, THCA, UCEC)
+pvals_mh_cut <- pvals_mh_cut[c("hmec", "ast", "colon", "eso", "renal", "airway",
+                    "pros", "mc", "kc", "thy", "endo"), 
+                    c("BRCA", "LGG", "GBM", "COAD", "ESCA","KIRC", "KIRP",
+                    "LUAD", "LUSC", "PRAD", "SKCM", "THCA", "UCEC")]
+```
+
+
+
