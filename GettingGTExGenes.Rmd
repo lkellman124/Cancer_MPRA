@@ -8,6 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(readr)
 library(tidyverse)
 library(biomaRt)
+library(here)
 ```
 
 445 snps don't have a listed gtex variant id. Can look into those later.
@@ -23,7 +24,7 @@ lib <- read_tsv(here("output/lib_studies_idmerge_diseasesexpanded_coords3738_gte
 ```
 #### Find all the significant SNP-egene pairs in our tissues from gtex v8
 ```{r}
-file_list <- list.files(path=here("data/GTEx_Analysis_v8_eQTL/"),
+file_list <- list.files(path=here("data/LK_GTEx_Analysis_v8_eQTL/"),
                         pattern = ".*signif_variant_gene_pairs.txt$", full.names=T)
 files_filt <- file_list[grepl("Brain|Colon|EBV|Esop|Thyroid|Skin|Pancreas|Breast|Lung|Uterus|Kidney|Ovary|Prostate", file_list)]
 variant_ids <- unique(lib$variant_id)
@@ -51,7 +52,7 @@ problem_ids <- unique(egene_pairs$variant_id[!(egene_pairs$variant_id %in% lib$v
 
 #### Skip - Already done on file level
 Now I want to filter down only to our tissues
-```{r}
+```{r eval=FALSE, include=FALSE}
 
 egene_filt <- dplyr::filter(egene_pairs, grepl("Brain|Colon|EBV|Esop|Thyroid|Skin|Pancreas|Breast|Lung|Uterus|Kidney|Ovary|Prostate", tissue))
 egenes_hgnc <- egene_filt %>% mutate(gene_id = str_remove(gene_id, "\\.[0-9]+$")) %>%
