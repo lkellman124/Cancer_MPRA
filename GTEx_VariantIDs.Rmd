@@ -6,11 +6,14 @@ output: html_document
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(readr)
+library(magrittr)
+library(dplyr)
+library(here)
 ```
 
 ```{r}
 # lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GenomicCoordinates/lib_studies_idmerge_diseasesexpanded_coords3738_12.13.19.tsv")
-lib <- read_tsv(here("output/lib_table_merged_rsids_12.10.19.tsv"))
+lib <- read_tsv(here("data/lib_studies_idmerge_diseasesexpanded_coords3738_gtexID_12.13.19.tsv"))
 
 gtex_lookup <- read_tsv(here("data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table.txt"))
 
