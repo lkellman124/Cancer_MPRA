@@ -180,7 +180,7 @@ length(unique(lib_gtex_merge$locus_name))
 
     variant_id_test = ifelse(length(variant_id) > 1,
                                   paste(sort(unique(variant_id)), collapse=","),
-                                  variant_id))
+                                  variant_id)
                             
   
   dplyr::filter(dedup, !(Causal_SNP %in% duped & !(varid_allele == Alt)))

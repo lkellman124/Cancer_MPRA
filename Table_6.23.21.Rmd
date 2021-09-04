@@ -228,6 +228,8 @@ ggplot(egene_three, aes(x=disease, y = Cancer, label=Gene, col=source))+
   theme(panel.background = element_rect(fill="white"),
         panel.grid.major = element_line(colour="grey94"))
 egene_three$Gene
+```
+
 2 - MAP3K1
 3 - PIK3R1
 4 - HIST1H3B
@@ -246,7 +248,6 @@ egene_three$Gene
 35 - PIK3R1
 36 - PIK3R1
 
-```
 ```{r}
 egene_three <- egene_three %>% mutate(`SNP cancer type` = case_when(
   disease == "airway" ~ "LUAD",
