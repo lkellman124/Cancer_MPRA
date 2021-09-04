@@ -18,7 +18,8 @@ rule haploreg_simpler:
   input:
     "output/lib_table_merged_rsids_12.10.19.tsv"
   output:
-    "output/cmpra_haploreg_data_withquery.tsv"
+    wrong="output/cmpra_haploreg_data.tsv",
+    right="output/cmpra_haploreg_data_withquery.tsv"
   script:
     "HaploReg_FindingSNPs.Rmd"
 
@@ -37,15 +38,21 @@ rule haploreg_with_merged_rsids:
 
 rule finding_gwas_risk_allele:
   input:
-    "data/cancer_lib_haploreg_diseasereannotated_12.12.19.tsv",
+    "output/lib_table_merged_rsids_12.10.19.tsv",
     # "data/all-causal-SNP-16cancers.txt",
-    "data/gwas_catalog_v1.0-associations_e96_r2019-10-14.tsv"
+    "data/gwas_catalog_v1.0-associations_e96_r2019-10-14.tsv",
+    # "data/cmpra_haploreg_data_withquery.tsv"
+    "output/cmpra_haploreg_data_withquery.tsv"
+
   output:
     "output/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_1.14.20.tsv"
+  script:
+    "Finding_GWAS_RiskAllele_1.14.20.Rmd"
 
 rule gtex_variant_ids:
   input:
-    "data/lib_studies_idmerge_diseasesexpanded_coords3738_gtexID_12.13.19.tsv",
+    # "data/lib_studies_idmerge_diseasesexpanded_coords3738_gtexID_12.13.19.tsv",
+    "output/lib_studies_idmerge_diseasesexpanded_coords_gtex_hichip_gwasrisk_1.14.20.tsv",
     "data/GTEx_Analysis_2017-06-05_v8_WholeGenomeSeq_838Indiv_Analysis_Freeze.lookup_table.txt"
   output:
     "output/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv"
@@ -78,3 +85,11 @@ rule mpra_analyze_merge_background_info:
     "output/res_merge_plasmidrep_reanalyzed_112820.tsv"
   script:
     "mpranalyze_merging_lib_background_info.Rmd"
+
+rule reanalyzing_hichip:
+  input:
+
+  output:
+    "output/res_merge_hichip_nearbygenes_update_113020.tsv"
+  script:
+    "ReanalyzingHiChIP_11.30.20_reeditforloops_fixing.Rmd"
