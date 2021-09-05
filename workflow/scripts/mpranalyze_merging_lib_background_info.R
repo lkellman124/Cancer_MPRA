@@ -1,0 +1,22 @@
+## ----setup, include=FALSE-----------------------------------------------------------------------------------------
+source(".Rprofile")
+#knitr::opts_chunk$set(echo = TRUE)
+library(here)
+library(readr)
+library(dplyr)
+
+
+## -----------------------------------------------------------------------------------------------------------------
+res <- read_tsv(here("output/mpranalyze_plasmidrep_112720.tsv"))
+full_lib <- read_tsv(here("output/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv"))
+
+res_merge <- left_join(res, full_lib, by=c("locus" = "locus"))
+
+fdr_vars <- colnames(res_merge)[grepl("fdr", colnames(res_merge))]
+fc_vars <- colnames(res_merge)[grepl("logFC", colnames(res_merge))]
+res_merge <- res_merge %>% rowwise() %>% 
+  mutate_at(all_of(fdr_vars), function(x) ifelse(is.na(x), 1, x))%>%
+  mutate_at(all_of(fc_vars), function(x) ifelse(is.na(x), 0, x))
+
+write_tsv(res_merge, here("output/res_merge_plasmidrep_reanalyzed_112820.tsv"))
+

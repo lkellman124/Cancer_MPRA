@@ -1,0 +1,127 @@
+## ----setup, include=FALSE-----------------------------------------------------------------------------------------
+source(".Rprofile")
+#knitr::opts_chunk$set(echo = TRUE)
+library(readr)
+library(tidyverse)
+library(stringr)
+library(MPRAnalyze)
+library(BiocParallel)
+library(pheatmap)
+library(GGally)
+library(here)
+
+
+## -----------------------------------------------------------------------------------------------------------------
+lib <- read_tsv(here("data/nextseq_counts_111920.tsv"))
+
+
+## -----------------------------------------------------------------------------------------------------------------
+lib <- lib %>% separate(oligo, into=c("oligo_type", "locus", "allele", "barcode"), 
+                        sep="_", remove=F) %>%
+  mutate(locus = paste(oligo_type, locus, sep="_")) %>%
+  dplyr::select(-oligo, -oligo_type)
+
+
+## -----------------------------------------------------------------------------------------------------------------
+lib_grp <- lib %>% group_by(locus, allele) %>% 
+  summarise(num_plasmid_nonzero = sum(plasmid_2 > 0 | plasmid_3 > 0))
+lib_grp_filt <- dplyr::filter(lib_grp, num_plasmid_nonzero < 3)
+lib_filt <- dplyr::filter(lib, !(locus %in% lib_grp_filt$locus))
+
+
+
+## -----------------------------------------------------------------------------------------------------------------
+
+# take out scrambles and motifs, then add reformatted scrambles back in
+# filter out the non-snps
+lib_filt <- dplyr::filter(lib_filt, !grepl("JM|motif|scramble", lib_filt$locus))
+
+
+## -----------------------------------------------------------------------------------------------------------------
+dna <- lib_filt %>% dplyr::select(locus, allele, barcode, plasmid_2, plasmid_3)%>%
+  pivot_longer(cols=c(plasmid_2, plasmid_3), names_to = "dna_batch", values_to = "count") %>%
+  mutate(dna_batch = ifelse(dna_batch == "plasmid_2", "rep1", "rep2")) %>% rowwise() %>%
+  mutate(batch.allele.bc = paste(dna_batch, allele, barcode, sep="-")) %>%
+  dplyr::select(-barcode, -allele, -dna_batch) %>%
+  spread(key= batch.allele.bc, value = count)
+future_rownames <- dna$locus
+dna <- dna %>% ungroup() %>% dplyr::select(-locus)
+dna[is.na(dna)] <- 0
+dna <- as.matrix(dna)
+rownames(dna) <- future_rownames
+
+
+
+## -----------------------------------------------------------------------------------------------------------------
+rna <- lib_filt %>% dplyr::select(-plasmid_2, -plasmid_3) %>%
+  pivot_longer(c(-allele, -locus, -barcode), names_to = "cell_type",
+                                                        values_to="count")
+rna <- rna %>% unite("cell_type", cell_type, barcode, sep="-") %>%
+  unite("cell_type", cell_type, allele, sep="-")
+rna <- rna %>% pivot_wider(names_from=cell_type, values_from = count)
+
+future_rownames <- rna$locus
+rna <- rna %>% ungroup() %>% dplyr::select(-locus)
+rna[is.na(rna)] <- 0
+rna <- as.matrix(rna)
+rownames(rna) <- future_rownames
+rna <- rna[order(as.character(rownames(rna))),]
+
+
+
+## -----------------------------------------------------------------------------------------------------------------
+col_dna = data.frame(dna_batch = str_remove(colnames(dna), "-.*$"),
+                     condition = str_remove(str_remove(colnames(dna), "^rep[0-9]-"), "-.*$"),
+                      barcode = str_remove(colnames(dna), "^.*-"))
+rownames(col_dna) <- colnames(dna)
+col_dna$barcode_allelic <- interaction(col_dna$barcode, col_dna$condition)
+
+
+## -----------------------------------------------------------------------------------------------------------------
+cells = unique(str_remove(colnames(rna), "_.*"))
+loci = distinct(dplyr::select(lib_filt, locus))
+library(foreach)
+library(doParallel)
+numCores = 6
+# cells = cells[c(1:6)]
+registerDoParallel(numCores)  # use multicore, set to the number of our cores
+res1 <- foreach (cell=cells, .combine=cbind) %dopar% {
+  print(cell)
+  # dna and col_dna can stay the same
+  # rna needs to be filtered for only the cell related columns
+  # rna col annot needs to be made
+  rna_cell <- rna[,grepl(cell, colnames(rna))]
+  
+  col_rna = data.frame(condition = stringr::str_remove(colnames(rna_cell), "^.*-"), 
+                       batch = stringr::str_remove(stringr::str_remove(colnames(rna_cell), "^.*_"), "-.*$"),
+                       barcode = stringr::str_remove(stringr::str_remove(colnames(rna_cell), "-ref$|-alt$"), ".*-"))
+  rownames(col_rna) <- colnames(rna_cell)
+  col_rna$barcode_allelic <- interaction(col_rna$barcode, col_rna$condition)
+  obj <- MPRAnalyze::MpraObject(dnaCounts =dna, rnaCounts =rna_cell, dnaAnnot = col_dna, 
+                                rnaAnnot = col_rna)
+  obj <- MPRAnalyze::estimateDepthFactors(obj, lib.factor = "dna_batch", which.lib = "dna", 
+                                          depth.estimator = "uq")
+  obj <- MPRAnalyze::estimateDepthFactors(obj,which.lib = "rna", lib.factor= "batch",
+                                          depth.estimator = "uq")
+  obj <- MPRAnalyze::analyzeComparative(obj = obj, 
+                                       dnaDesign = ~ barcode_allelic, 
+                                       rnaDesign = ~ condition, 
+                                       reducedDesign = ~ 1)
+# should I have batch in the rnaDesign? Try both:
+#   obj <- analyzeComparative(obj = obj, 
+#                           dnaDesign = ~ barcode_allelic, 
+#                           rnaDesign = ~ condition + batch, 
+#                           reducedDesign = ~ batch)
+  res_cell <- MPRAnalyze::testLrt(obj) 
+  res_cell <- dplyr::select(res_cell, fdr, pval, logFC)
+  colnames(res_cell) <- paste(cell, colnames(res_cell), sep="_")
+  res_cell <- dplyr::left_join(loci, tibble::rownames_to_column(res_cell, "locus"))
+}
+
+res_locus <- res1$locus
+res1_write <- res1 %>% dplyr::select(-locus)
+res1_write$locus <- res_locus
+res1_write <- res1_write %>% dplyr::select(locus, dplyr::everything())
+write_tsv(res1_write, here("output/mpranalyze_plasmidrep_112720.tsv"))
+
+
