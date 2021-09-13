@@ -132,7 +132,7 @@ Getting rid of the multiple lead snp/same causal snp entries
 
 
 ```{r}
-write_tsv(haplo_data, here("output/cmpra_haploreg_data.tsv"))
+# write_tsv(haplo_data, here("output/cmpra_haploreg_data.tsv"))
 ```
 
 Should not have done that. Turned out I wanted the lead snps and I want all the leadsnps included
