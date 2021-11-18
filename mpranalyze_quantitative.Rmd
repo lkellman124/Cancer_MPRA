@@ -13,6 +13,9 @@ library(pheatmap)
 library(GGally)
 ```
 
+Analyze the MPRA counts files using MPRAnalyze quantitative mode
+Gives an estimate of transcription rate for each oligo
+Have not yet implemented "here" for this - careful all file paths are specific to my computer
 
 Read in counts file
 ```{r}
@@ -73,8 +76,6 @@ col_dna = data.frame(dna_batch = str_remove(colnames(dna), "-.*$"),
 rownames(col_dna) <- colnames(dna)
 ```
 
-I've been running MPRAnalyze separately for each cell type, made it easier to interpret, need to think more about what this means for multiple hypothesis correction
-- considering adding a filter for 3 or more barcodes represented in each cell type, would need to be in the for loop
 ```{r}
 cells = unique(str_remove(colnames(rna), "_.*"))
 res = data.frame()
@@ -188,8 +189,7 @@ res_colon <- testEmpirical(obj = obj,
   
 
   
- #  write_tsv(rownames_to_column(alpha), "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/alpha_results_1.28.21.tsv")
-#   alpha <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/alpha_results_1.28.21.tsv")
+ write_tsv(rownames_to_column(alpha), "~/Documents/MPRA/Cancer_MPRA_Scaleup/QuantitativeMPRAnalyze/alpha_results_1.28.21.tsv")
   boxplot(alpha)
   
   res.hmec <- testEmpirical(obj = obj, 
@@ -230,19 +230,7 @@ pheatmap(log10(alpha_filt+1))
 alpha_filt <- alpha_filt[]
 ```
 
-```{r fig.width = 1.5, fig.height = 4}
-motifs <- alpha[grepl("motif", rownames(alpha)),]
-motifs <- motifs[!(grepl("JM", rownames(motifs))),]
-# motifs_filt <- motifs[rownames(motifs) %in% keep,]
-motifs_sds <- apply(motifs, 1, sd)
-quantile(motifs_sds, seq(0,1, 0.1), na.rm=T)
-motifs_filt <- motifs[motifs_sds > quantile(motifs_sds, na.rm=T)[4] & !is.na(motifs_sds),]
-rownames(motifs_filt) <- str_remove(str_remove(rownames(motifs_filt), "^motif_"), "_motif")
 
-pheatmap(log2(motifs_filt+1), fontsize_row = 3, main = "MPRA transcription levels of motifs in library")
-
-
-```
 
 
 

@@ -26,11 +26,9 @@ merged_rs <- dplyr::filter(merged_rs, rsID %in% snp_ids_nors | Current_rsID %in%
 merged_rs <- merged_rs %>% mutate_all(as.character)
 no_merge <- snp_ids_nors[!(snp_ids_nors %in% c(merged_rs$rsID, merged_rs$Current_rsID))]
 # I think these are just ones that never merged
-# write_tsv(merged_rs, here("output/RsMerge_libSNPsOnly.tsv"))
 ```
 
 Now convert Causal_SNP to causal_rsID and leadSNP to lead_rsID
-
 ```{r}
 lib_key <- lib_key %>% mutate(Cancer_eQTL = grepl("newCEQTL", Causal_SNP),
                               Causal_SNP = str_remove(Causal_SNP, "-newCEQTL"),
@@ -48,7 +46,6 @@ check_lead = lib_key[!(str_remove(lib_key$leadSNP, "^rs")==lib_key$lead_rsID),]
 
 This catches 61 causal snps, 17 lead SNPs
 That's a lot fewer than I thought.
-
 ```{r}
 merged_rsid_conversion <- dplyr::select(lib_key, Causal_SNP, leadSNP, causal_rsID, lead_rsID)
 colnames(merged_rsid_conversion) <- c("Causal_SNP", "leadSNP", "causal_merged_rsID", "lead_merged_rsID")
@@ -62,13 +59,6 @@ merged_lib <- lib_key %>% mutate(Causal_SNP = str_c("rs", causal_rsID), leadSNP 
   dplyr::select(-causal_rsID, - lead_rsID, -fa.name)
 write_tsv(merged_lib, here("output/lib_table_merged_rsids_12.10.19.tsv"))
 ```
-
-
-```{r}
-
-
-```
-
 
 
 

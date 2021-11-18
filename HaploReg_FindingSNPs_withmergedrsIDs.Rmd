@@ -13,13 +13,12 @@ library(tidyverse)
 library(here)
 ```
 
+Use HaploReg_FindingSNPs.Rmd instead. This one was really buggy.
+
 European haploreg data
-
-
 ```{r}
 lib <- read_tsv(here("output/lib_table_merged_rsids_12.10.19.tsv"))
 snplist <- unique(c(lib$Causal_SNP, lib$leadSNP))
-# write(snplist, "~/Documents/MPRA/Cancer_MPRA/HaploReg/snp_list_10.17.19.txt")
 merge_conversion <- read_tsv(here("output/lib_snps_merged_rsid_conversion.tsv"))
 merge_conversion <- merge_conversion %>% mutate(causal_merged_rsID = paste("rs", causal_merged_rsID, sep=""),
                                                 lead_merged_rsID = paste("rs", lead_merged_rsID, sep=""))
@@ -193,7 +192,6 @@ haplo_data <- haplo_data %>% rowwise() %>% mutate(rsID = ifelse(rsID %in% c(lib$
 
 write_tsv(haplo_data, here("output/cancer_lib_haploreg_data_withmergedsnpids_12.12.19.tsv"))
 
-# haplo_data <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/cancer_lib_haploreg_data_withmergedsnpids_12.12.19.tsv")
 
 sum(!(lead_snps %in% haplo_data$query_snp_rsid))
 # 48 lead snps aren't in the data set
@@ -277,20 +275,6 @@ check_nas = lib_haplolead[is.na(lib_haplolead$all_lead_snps) & !(is.na(lib_haplo
 
 
 
-causal snp - rs34510642, lead snp - rs658191, not a merge thing
-it's one of the ones where the it doesn't come up for the lead snp but the lead snp comes up for it. 
-re-run these problem snps
-
-rs34510642, lead snp rs658191 really don't seem to be linked on haploreg - seems like a version issue. haploreg v2 is ok.
-
-For rs71062735, rs12077974, it seems like in haploreg v2 they're right at 0.8, with rs12077974 listed for rs71062736 but not vice versa.
-
-rs35952432, rs71546598
-- causal snp rs71546598 linked to rs35952432 in v2 and v4 (but not a symmetric relationship, this is weird)
-
-Some of the problem is asymmetric linkage relationships. Maybe should put the NA causal snps in themselves, and see if they pull out lead SNPs
-
-204 problem snps
 ```{r}
 problem_snps <- unique(lib_haplolead$Causal_SNP[is.na(lib_haplolead$all_lead_snps) | lib_haplolead$correct_lead == 0 ])
 # if haploreg can't find the snp it throws an error. So remove the ones that have been a problem
@@ -368,7 +352,6 @@ for (i in 100:119){
 
 # re-run 100-124
 write_tsv(haplo_data_problem_snps_amr_temp, here("output/problem_snps_causalrun_amr_12.12.19.tsv"))
-# haplo_data_problem_snps_amr_temp <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_amr_12.12.19.tsv")
 
 ```
 
@@ -400,7 +383,6 @@ for (i in 100:109){
 }
 
 write_tsv(haplo_data_problem_snps_afr_temp, here("output/problem_snps_causalrun_afr_12.12.19.tsv"))
-# haplo_data_problem_snps_afr_temp <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/HaploReg/FollowupProblemSNPs/problem_snps_causalrun_afr_12.12.19.tsv")
 
 ```
 
@@ -526,49 +508,5 @@ write_tsv(lib_disease_annot, here("output/cancer_lib_haploreg_diseasereannotated
 ```
 
 
-Still don't really know what the deal is with rs36068,rs1264325,rs1815,rs1816. Don't know how they got their lead snps in the original library, but not associated. But they're with the right disease - alternate lead snps for all of them linked to breast cancer
 
-
-
-
-
-
-
-Take the ones that still fail and use their unmerged ids. 
-```{r}
-# merge_conversion <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/MergingSNPs/lib_snps_merged_rsid_conversion.tsv")
-# merge_problems <- merge_conversion$Causal_SNP[merge_conversion$causal_merged_rsID == ]
-
-
-```
-
-
-
-```{r}
-# problem_snp_leads <- haplo_data_problem_snps %>% haplo_data <- haplo_data %>% 
-#   dplyr::filter(rsID %in% c(lib$Causal_SNP, lib$leadSNP)) %>% 
-#   dplyr::select( -r2, -`D'`) %>% distinct() %>% 
-#   group_by(query_snp_rsid) %>% summarise(all_lead_snps = paste(unique(query_snp_rsid[query_snp_rsid %in% lib$leadSNP]), collapse=","))
-# 
-# # add the entries to haplo_data 
-# lib_haplolead_fix <- lib_haplolead %>% 
-#   mutate(all_lead_snps = case_when(
-#     is.na(all_lead_snps) & Causal_SNP %in% problem_snp_leads$query_snp_rsid ~ problem_snp_leads$all_lead_snps[problem_snp_leads$query_snp_rsid==Causal_SNP],
-#     !is.na(all_lead_snps)
-#     is.na(all_lead_snps) ~ 
-#     T ~ all_lead_snps
-#   ))
-# 
-# group_by(rsID, chr, pos_hg38, ref, alt, AFR, AMR, ASN, EUR, Motifs, eQTL, gwas, Promoter_histone_marks,
-#                                                    Enhancer_histone_marks,dbSNP_functional_annotation, 
-#                                                    grasp, DNAse) %>% 
-#   summarise(all_lead_snps = paste(unique(query_snp_rsid), collapse=","))
-```
-
-
-
-Questions:
-Why are some of the haploreg linkage relationships not symmetric?
-Which version of haploreg did yz use?
-Why are rs45509595,rs13199649 associated with rs71546598?
 

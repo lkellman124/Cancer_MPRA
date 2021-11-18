@@ -9,10 +9,10 @@ library(here)
 library(tidyverse)
 ```
 
-Make hitspec column and rename disease_expanded to match
+Identify which SNVs are disease specific hits (ie, differentially active in the MPRA in the cell type relevant to the cancer they're associated with)
+Recode column disease_expanded so it's using the same words for each cancer/tissue type.
 ```{r}
 res_merge <- read_tsv(here("output/res_merge_witheQTLgen_11.1.2020.tsv"))
-
 ```
 Rename disease expanded to match hits
 ```{r}
@@ -40,14 +40,12 @@ snp_dis <- snp_dis %>% group_by(Causal_SNP) %>%
 res_merge <- left_join(dplyr::select(res_merge, -Disease_expanded), snp_dis)
 ```
 
-
-Annotate hits for any cell type and hits in the correct cell type
+Annotate hits for any cell type (SNVs differentially active in that cell type) and hits in the correct cell type
 ```{r}
 hits <- res_merge[, grepl("fdr", colnames(res_merge))]
 colnames(hits)
 hits$locus <- res_merge$locus
 hits$disease <- res_merge$Disease_expanded
-#hits <- pivot_longer(hits, cols= dplyr::select(ends_with("fdr")), names_to = "cell_type", values_to="fdr")
 hits <- pivot_longer(hits, cols= airway_fdr:thy_fdr, names_to = "cell_type", values_to="fdr")
 hits <- hits %>% mutate(cell_type = str_remove(cell_type, "_fdr") )
 
@@ -66,6 +64,4 @@ res_merge <- left_join(res_merge, hits)
 ```
 
 
-
-```
 

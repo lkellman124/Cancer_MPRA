@@ -10,6 +10,7 @@ library(tidyverse)
 ```
 
 In HaploReg_FindingSNPs.Rmd, went through haploreg, took out our snps.
+Have not yet implemented "here" for this - careful all file paths are specific to my computer
 
 ```{r}
 haplo_data <- read_tsv("~/Documents/MPRA/Cancer_MPRA/HaploReg/cmpra_haploreg_data_withquery.tsv")

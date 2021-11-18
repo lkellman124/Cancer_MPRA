@@ -39,8 +39,7 @@ lib_filt <- dplyr::filter(lib, !(locus %in% lib_grp_filt$locus))
 ```
 
 ```{r}
-
-# take out scrambles and motifs, then add reformatted scrambles back in
+# take out scrambles and motifs
 # filter out the non-snps
 lib_filt <- dplyr::filter(lib_filt, !grepl("JM|motif|scramble", lib_filt$locus))
 ```
@@ -88,15 +87,14 @@ rownames(col_dna) <- colnames(dna)
 col_dna$barcode_allelic <- interaction(col_dna$barcode, col_dna$condition)
 ```
 
-I've been running MPRAnalyze separately for each cell type, made it easier to interpret, need to think more about what this means for multiple hypothesis correction
-- considering adding a filter for 3 or more barcodes represented in each cell type, would need to be in the for loop
+
 ```{r}
 cells = unique(str_remove(colnames(rna), "_.*"))
 loci = distinct(dplyr::select(lib_filt, locus))
 library(foreach)
 library(doParallel)
 numCores = 6
-# cells = cells[c(1:6)]
+
 registerDoParallel(numCores)  # use multicore, set to the number of our cores
 res1 <- foreach (cell=cells, .combine=cbind) %dopar% {
   print(cell)
@@ -120,11 +118,7 @@ res1 <- foreach (cell=cells, .combine=cbind) %dopar% {
                                        dnaDesign = ~ barcode_allelic, 
                                        rnaDesign = ~ condition, 
                                        reducedDesign = ~ 1)
-# should I have batch in the rnaDesign? Try both:
-#   obj <- analyzeComparative(obj = obj, 
-#                           dnaDesign = ~ barcode_allelic, 
-#                           rnaDesign = ~ condition + batch, 
-#                           reducedDesign = ~ batch)
+
   res_cell <- MPRAnalyze::testLrt(obj) 
   res_cell <- dplyr::select(res_cell, fdr, pval, logFC)
   colnames(res_cell) <- paste(cell, colnames(res_cell), sep="_")

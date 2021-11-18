@@ -11,18 +11,15 @@ library(biomaRt)
 library(here)
 ```
 
-445 snps don't have a listed gtex variant id. Can look into those later.
 
-194 variant ids don't have a snp in library -- looks like they're just a little different from gtex's list - which is weird, i got the variant ids off gtex dbsnp look up. But these could be salvaged down the line.
-- They're all v8 though
+Getting GTEx eGenes for MPRA library SNPs
+Using GTEx v8
+From https://gtexportal.org/home/datasets, use GTEx_Analysis_v8_eQTL.tar
 
 ```{r}
-#lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/GTEx_IDs_eQTLs/lib_studies_idmerge_diseasesexpanded_coords3738_gtexID_12.13.19.tsv")
-
-
 lib <- read_tsv(here("output/lib_studies_idmerge_diseasesexpanded_coords3738_gtexIDuncollapsed_1.9.20.tsv"))
 ```
-#### Find all the significant SNP-egene pairs in our tissues from gtex v8
+Find all the significant SNP-egene pairs in our tissues from gtex v8
 ```{r}
 file_list <- list.files(path=here("data/LK_GTEx_Analysis_v8_eQTL/"),
                         pattern = ".*signif_variant_gene_pairs.txt$", full.names=T)
@@ -37,30 +34,15 @@ for (file_name in files_filt){
   egene_pairs <- rbind(egene_pairs, df_rel)
 }
 
-# write_tsv(egene_pairs, "~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/significant_egene_pairs_for_snps_in_gtex.txt")  
 write_tsv(egene_pairs, here("output/significant_egene_pairs_for_snps_in_gtex_tissue_filtered_1.13.20.txt"))
 
-# egene_pairs <- read_tsv(here("output/significant_egene_pairs_for_snps_in_gtex.txt"))
 ```
-#### Check into the misfit variant ids
+Check into the misfit variant ids
 ```{r}
 problem_ids <- unique(egene_pairs$variant_id[!(egene_pairs$variant_id %in% lib$variant_id)])
 # none
 
 ```
-
-
-#### Skip - Already done on file level
-Now I want to filter down only to our tissues
-```{r eval=FALSE, include=FALSE}
-
-egene_filt <- dplyr::filter(egene_pairs, grepl("Brain|Colon|EBV|Esop|Thyroid|Skin|Pancreas|Breast|Lung|Uterus|Kidney|Ovary|Prostate", tissue))
-egenes_hgnc <- egene_filt %>% mutate(gene_id = str_remove(gene_id, "\\.[0-9]+$")) %>%
-  rowwise() %>% mutate(hgnc = ifelse(sum(gene_id %in% results$ensembl_gene_id) > 0, 
-                                                    unique(results$hgnc_symbol[gene_id == results$ensembl_gene_id]),
-                                                    gene_id))
-```
-
 
 #### Convert to HGNC symbol
 ```{r}
@@ -70,10 +52,8 @@ egenes_hgnc <- egene_filt %>% mutate(gene_id = str_remove(gene_id, "\\.[0-9]+$")
 features=c('ensembl_gene_id','ensembl_transcript_id','entrezgene_id','hgnc_symbol', 'external_gene_name','refseq_mrna')
 host='www.ensembl.org'
 # human
-# human_file=here('~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/geneID_mapping_human.tsv')
 hmart=useMart('ENSEMBL_MART_ENSEMBL', dataset='hsapiens_gene_ensembl',host=host)
 results=getBM(attributes=features,mart=hmart)
-# write.table(results,human_file,sep='\t',quote=FALSE,row.names=FALSE,col.names=TRUE)
 
 # or skip to:
 # results = read_tsv('~/Documents/MPRA/Cancer_MPRA/Lx_Analysis/geneID_mapping_human.tsv')
@@ -86,23 +66,18 @@ egene_med <- egene_med %>% rowwise() %>%
   mutate(hgnc = ifelse(gene_id %in% key$ensembl_gene_id, key$hgnc_symbol[key$ensembl_gene_id == gene_id],
                        NA))
                                 
-                               
-
-
+                              
 ```
 
 Write out the large df, then collapse it down to something I can put next to results df
 ```{r}
-#write_tsv(egene_med, "~/Documents/MPRA/Cancer_MPRA_Scaleup/eGeneFiles/GTEx/Uncollapsed_tissuefilt_egenesnp_pairs.txt")
-# egene_med <- read_tsv(here("output/Uncollapsed_tissuefilt_egenesnp_pairs.txt"))
-
 lib <- dplyr::rename(lib, Disease_expanded = disease_expanded)
 
 # want to add tissue specific egenes
 lib_gtex <- left_join(dplyr::select(lib, Causal_SNP, Ref,Alt, Disease_expanded, variant_id), 
                       dplyr::select(egene_med, variant_id, gene_id, tissue, hgnc, slope),
                       by=c("variant_id"="variant_id"))
-
+# aligning the names used
 gtex_tissue_filtered <- lib_gtex %>% rowwise() %>%
   mutate(correct_tissue = case_when(
     grepl("lung", Disease_expanded) & grepl("Lung", tissue) ~ T,
@@ -136,9 +111,5 @@ gtex_tissue_coll <- gtex_tissue_annot %>% group_by(variant_id) %>%
 lib_gtex_merge <- left_join(lib, gtex_tissue_coll, by=c("variant_id"="variant_id"))
 
 write_tsv(lib_gtex_merge, here("output/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_tissuecolumn_1.13.20.tsv"))
-
-# write_tsv(lib_gtex, "~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_1.9.20.tsv")
-    
-# lib <- read_tsv("~/Documents/MPRA/Cancer_MPRA_Scaleup/AnalysisFiles12.5.19/FormattingBackground/lib_studies_idmerge_diseasesexpanded_coords3738_GTExeGenes_1.9.20.tsv")
 
 ```
