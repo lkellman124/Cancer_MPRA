@@ -19,3 +19,6 @@ Merged SNP IDs:
 RsMergeArch.bcp
 From ftp://ftp.ncbi.nlm.nih.gov/snp/organisms/human_9606/database/organism_data
 Date modified 2/10/2018
+
+
+gwas_catalog_v1.0-associations_e96_r2019-10-14
